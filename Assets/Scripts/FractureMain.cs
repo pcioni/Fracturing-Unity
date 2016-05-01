@@ -11,7 +11,7 @@ public class FractureMain : MonoBehaviour {
 
 
 	void Start () {
-	
+
 	}
 	
 	void Update () {
