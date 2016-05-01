@@ -17,7 +17,6 @@ public class Edge {
 
 public struct EdgeHit {
 	public float scalar;
-
 	public Edge splitA, splitB;
 }
 
@@ -26,7 +25,6 @@ public struct EdgeHit {
 public class Point {
 	public int index;
 	public Vector3 position;
-
 	public Point(Vector3 position) {
 		this.position = position;
 	}
