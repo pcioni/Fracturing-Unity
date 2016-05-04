@@ -88,3 +88,13 @@ public class ConvexHull : MonoBehaviour {
 	
 	}
 }
+
+
+/* FOR CUTTING EDGES IN THE FUTURE
+// Triangulate
+Triangulation triangulator = new Triangulator(outlinePoints, outlineEdges, planeNormal);
+List<int[]> edgesTrisTriedges = triangulator.Fill();
+int[] newEdges = edgesTrisTriedges[0];
+int[] newTriangles = edgesTrisTriedges[1];
+int[] newTriangleEdges = edgesTrisTriedges[2];
+ */ 
