@@ -185,7 +185,7 @@ public class Triangulation : MonoBehaviour {
 				if (reflexAngleVert != point0 && reflexAngleVert != point1 && reflexAngleVert != point2) {
 					Vector3 point = points[reflexAngleVert];
 					//Check if reflex vertex is inside the triangle
-					if (IsPointInsideTriangle(point, triangle0, triangle1, triangle2, normalPlane)) 
+					if (IsPointInsideTriangle(point, triangle0, triangle1, triangle2)) 
 						return true;
 				}
 			}
@@ -220,9 +220,11 @@ public class Triangulation : MonoBehaviour {
 	//Find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
 	//TODO: don't use ref vars pls
 	private bool MergeLoops(int first, int second, int third, List<int> loop, List<bool> concavity, out int swallowedLoopIndex) {
-		int otherLoopIndex, otherLoopLocation;
-
-		if (FindClosestPointInTriangle(first, second, third, loop, out otherLoopIndex, out otherLoopLocation)) {
+		int[] loopInfo = FindClosestPointInTriangle(first, second, third, loop);
+		int otherLoopIndex = loopInfo[0];
+		int otherLoopLocation = loopInfo[1];
+		
+		if (otherLoopIndex != -1) {
 			//Swallow the other loop
 			InsertLoop(first, loop, concavity, otherLoopLocation, loops[otherLoopIndex], concavities[otherLoopIndex]);
 		
@@ -264,17 +266,27 @@ public class Triangulation : MonoBehaviour {
 		}
 	}
 
-	private bool FindClosestPointInTriangle(int first, int second, int third, List<int> loop, out int loopIndex, out int loopLocation) {
+	private int[] FindClosestPointInTriangle(int first, int second, int third, List<int> loop) {
 		//TODO: IMPLEMENT ME pls dan
 		//What the title says. Given three points of a triangle and their respective loop, find the closest point.
 
 		//this function is only CHECKING to see if we can find a point on the given triangle.
 		//I.E., if we can't find a loop, return false.
+
+		int closestLoopIndex = -1;
+		int closestLoopLocation = 0;
+		float closestDistance = 0.0f;
+
 		Vector3 triPoint1 = points[edges[loop[first]]];
 		Vector3 triPoint2 = points[edges[loop[second]]];
 		Vector3 triPoint3 = points[edges[loop[third]]];
 
 		Vector3 triPoint1Normal = Vector3.Cross(normalPlane, triPoint2 - triPoint1);
+
+		int[] result = new int[2];  //0 = loopIndex, 1 = loopLocation
+		result[0] = closestLoopIndex;
+		result[1] = closestLoopLocation;
+		return result;
 	}
 	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
 		//TODO: IMPLEMENT ME
