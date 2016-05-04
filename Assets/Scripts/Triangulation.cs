@@ -38,7 +38,7 @@ public class Triangulation : MonoBehaviour {
 		this.initEdgeCount = edges.Count;
 	}
 
-	public List<int[]>  Fill() {
+	public List<int[]> Fill() {
 		List<int[]> edgesTrisTriedges = new List<int[]>(3);
 
 		edgesTrisTriedges.Add(new int[]{});
@@ -56,11 +56,15 @@ public class Triangulation : MonoBehaviour {
 			List<bool> concavity = concavities[i];
 
 			//Triangulate loop
+			int zero;
 			int index = 0;
 			int unsuitableTriangles = 0;
 			while (loop.Count >= 3) {
 				// Evaluate triangle
-				int zero = index == 0 ? loop.Count - 1 : index - 1;
+				if (index == 0)
+					zero = loop.Count -1;
+				else
+					zero = index - 1;
 				int first = index;
 				int second = (index + 1) % loop.Count;
 				int third = (index + 2) % loop.Count;
@@ -189,11 +193,6 @@ public class Triangulation : MonoBehaviour {
 		return false;
 	}
 
-	//Thanks math textbook
-	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
-		return Vector3.Dot(line1, Vector3.Cross(line0, normalPlane) ) > 0.0f;
-	}
-
 	//For each loop, check the three points. make vectors of P1-P0 && P2-P1. Check if this line pair is concave.
 	//Store these as a big list of bools of "concave" or "not concave". We don't really care about HOW concave they
 	//  are so much as if they're just concave in general.
@@ -266,15 +265,23 @@ public class Triangulation : MonoBehaviour {
 	}
 
 	private bool FindClosestPointInTriangle(int first, int second, int third, List<int> loop, out int loopIndex, out int loopLocation) {
-		//TODO: IMPLEMENT ME
+		//TODO: IMPLEMENT ME pls dan
 		//What the title says. Given three points of a triangle and their respective loop, find the closest point.
+
+		//this function is only CHECKING to see if we can find a point on the given triangle.
+		//I.E., if we can't find a loop, return false.
+		Vector3 triPoint1 = points[edges[loop[first]]];
+		Vector3 triPoint2 = points[edges[loop[second]]];
+		Vector3 triPoint3 = points[edges[loop[third]]];
+
+		Vector3 triPoint1Normal = Vector3.Cross(normalPlane, triPoint2 - triPoint1);
 	}
 	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
 		//TODO: IMPLEMENT ME
 		//Insert a loop into a mesh give the given attributes. 
 		//This effectively "closes" the hole in the original mesh.
 	}
-	private void FillTriangle() {
+	private void FillTriangle(int zero, int first, int second, int third, List<int> loop, List<bool> concavity) {
 		//TODO: IMPLEMENT ME
 		//fookin gross eh'
 		//create a new triangle out of 3 points. Create the 3 new tri edges.
@@ -283,26 +290,37 @@ public class Triangulation : MonoBehaviour {
 	}
 	private bool LocateLoops() {
 		//TODO: IMPLEMENT ME
-		//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edges end the loop.
+		//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edge connects with prev edge.
+		//if it does, add it to the loop. if th ecurrent edge ends the loop, add the complete loop to loops
+		//   and clear loop.
+		loops = new List<List<int>>();
+		List<int> loop = new List<int>(edges.Count / 2);
+	}
+
+	//Thanks math textbook
+	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
+		//TODO: DAAAAN FIX ME
 	}
 
 }
 
-/*
- * 		Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
+/* alternate old method for IPIT
+ Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
 
-		//Discard size zero triangles
-		if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
-			return false;
+//Discard size zero triangles
+if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
+	return false;
 
-		Vector3 pointTo0 = triangle0 - point;
-		Vector3 pointTo1 = triangle1 - point;
-		Vector3 pointTo2 = triangle2 - point;
+Vector3 pointTo0 = triangle0 - point;
+Vector3 pointTo1 = triangle1 - point;
+Vector3 pointTo2 = triangle2 - point;
 
-		if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
-			|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
-			|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
-		{ return false; }
+if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
+	|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
+	|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
+{ return false; }
 
-		return true;
-		*/
+return true;
+*/
+// LPC //return Vector3.Dot(line1, Vector3.Cross(line0, normalPlane) ) > 0.0f;
+

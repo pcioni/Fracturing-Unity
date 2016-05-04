@@ -9,15 +9,6 @@ public class FractureMain : MonoBehaviour {
 
 	private ConvexHull hull;
 
-
-	void Start () {
-
-	}
-	
-	void Update () {
-	
-	}
-
 	public void OnCollisionEnter(Collision c) {
 		foreach (ContactPoint cp in c.contacts) {
 			if (cp.otherCollider == c.collider)
