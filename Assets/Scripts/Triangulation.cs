@@ -166,10 +166,61 @@ public class Triangulation : MonoBehaviour {
 		}
 	}
 
-	private bool IsTriangleOverlappingLoop() {
-		//TODO: IMPLEMENT ME
-		//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
+	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triangle0, Vector3 triangle1, Vector3 triangle2) {
+
+		Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
+
+		// Discard zero-size triangles; slower but more logical than considering the triangle edges as outside
+		if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
+		{
+			return false;
+		}
+
+		Vector3 pointTo0 = triangle0 - point;
+		Vector3 pointTo1 = triangle1 - point;
+		Vector3 pointTo2 = triangle2 - point;
+
+		if (Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f ||
+			Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f ||
+			Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f)
+		{
+			return false;
+		}
+
+		return true;
 	}
+
+	//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
+	//A lovely gift from github.
+	private bool IsTriangleOverlappingLoop(int loop1, int loop2, int loop3, List<int> loop, List<bool> concavity) {
+		int point0 = edges[ loop[loop1] ];
+		int point1 = edges[ loop[loop2] ];
+		int point2 = edges[ loop[loop3] ];
+
+		Vector3 triangle0 = points[point0];
+		Vector3 triangle1 = points[point1];
+		Vector3 triangle2 = points[point2];
+
+		for (int i = 0; i < loop.Count; i++) {
+			if (concavity[i]) {
+				int reflexAngleVert = edges[loop[i] + 1];
+				//Skip points that aren't in the triangle
+				if (reflexAngleVert != point0 && reflexAngleVert != point1 && reflexAngleVert != point2) {
+					Vector3 point = points[reflexAngleVert];
+					//Check if reflex vertex is inside the triangle
+					if (IsPointInsideTriangle(point, triangle0, triangle1, triangle2, normalPlane)) 
+						return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	//Thanks math textbook
+	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
+		return Vector3.Dot(line1, Vector3.Cross(line0, normalPlane) ) > 0.0f;
+	}
+
 	private bool MergeLoops() {
 		//TODO: IMPLEMENT ME
 		//find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
