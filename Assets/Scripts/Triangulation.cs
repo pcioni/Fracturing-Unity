@@ -45,17 +45,17 @@ public class Triangulation : MonoBehaviour {
 		edgesTrisTriedges.Add(new int[]{});
 		edgesTrisTriedges.Add(new int[]{});
 
-		// Prepare triangulation
+		//Prepare triangulation
 		LocateLoops(); //ehehehe alliteration
 		LocateConcavities();
 		duplicateEdges = new List<int>();
 
-		// Triangulate loops
+		//Triangulate loops
 		for (int i = 0; i < loops.Count; i++) {
 			List<int> loop = loops[i];
 			List<bool> concavity = concavities[i];
 
-			// Triangulate loop
+			//Triangulate loop
 			int index = 0;
 			int unsuitableTriangles = 0;
 			while (loop.Count >= 3) {
@@ -65,40 +65,40 @@ public class Triangulation : MonoBehaviour {
 				int second = (index + 1) % loop.Count;
 				int third = (index + 2) % loop.Count;
 
-				if (concavity[first] || IsTriangleOverlappingLoop(first, second, third, loop, concavity)) {
-					// This triangle is not an ear, examine the next one
+				if (concavity[first] || IsTriangleOverlappingLoop(edges[loop[first]], edges[loop[second]], edges[loop[third]], loop, concavity)) {
+					//Triangle is not an ear
 					index++;
 					unsuitableTriangles++;
 				}
 				else {
-					// Evaluate loop merge
+					//Evaluate loop merge
 					int swallowedLoopIndex;
 
 					if (MergeLoops(first, second, third, loop, concavity, out swallowedLoopIndex)) {
 						if (swallowedLoopIndex < i) 
-							i--; // Merge occured, adjust loop index
+							i--; // Merge occured; adjust loop index
 					}
 					else 
-						// No merge occured, fill triangle
+						//No merge occured; fill triangle
 						FillTriangle(zero, first, second, third, loop, concavity);
 
-					// Suitable triangles may have appeared
+					//Suitable triangles may have appeared
 					unsuitableTriangles = 0;
 				}
 
 				if (unsuitableTriangles >= loop.Count) 
-					break; // No more suitable triangles in this loop, continue with the next one
+					break; //No suitable triangles in loop
 
-				// Wrap index
+				//Wrap index
 				if (index >= loop.Count) {
 					index = 0;
 					unsuitableTriangles = 0;
 				}
 			}
 
-			// Is the loop filled?
+			//Check if loop is complete.
 			if (loop.Count <= 2) {
-				// Remove the loop in order to avoid future merges
+				//Remove the loop to avoid future merges
 				loops.RemoveAt(i);
 				concavities.RemoveAt(i);
 				i--;
@@ -147,7 +147,7 @@ public class Triangulation : MonoBehaviour {
 
 		return edgesTrisTriedges;
 	}
-		
+
 	private void RemoveDuplicateEdges() {
 		for (int i = 0; i < duplicateEdges.Count; i++) {
 			int edge = duplicateEdges[i];
@@ -158,7 +158,7 @@ public class Triangulation : MonoBehaviour {
 			for (int j = 0, l = i + 1; j < triangleEdges.Count || l < duplicateEdges.Count; j++, i++) {
 				if (l < duplicateEdges.Count && duplicateEdges[l] >= edge)
 					duplicateEdges[j] -= 2; //Edge is in front of the duplicate edge
-	
+
 				if (j < triangleEdges.Count && triangleEdges[j] >= edge) 
 					triangleEdges[j] -= 2;  //edge is in front of the duplicate edge
 			}
@@ -167,36 +167,27 @@ public class Triangulation : MonoBehaviour {
 	}
 
 	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triangle0, Vector3 triangle1, Vector3 triangle2) {
-
 		Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
 
-		// Discard zero-size triangles; slower but more logical than considering the triangle edges as outside
+		//Discard size zero triangles
 		if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
-		{
 			return false;
-		}
 
 		Vector3 pointTo0 = triangle0 - point;
 		Vector3 pointTo1 = triangle1 - point;
 		Vector3 pointTo2 = triangle2 - point;
 
-		if (Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f ||
-			Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f ||
-			Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f)
-		{
-			return false;
-		}
+		if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
+			|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
+			|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
+		{ return false; }
 
 		return true;
 	}
 
 	//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
 	//A lovely gift from github.
-	private bool IsTriangleOverlappingLoop(int loop1, int loop2, int loop3, List<int> loop, List<bool> concavity) {
-		int point0 = edges[ loop[loop1] ];
-		int point1 = edges[ loop[loop2] ];
-		int point2 = edges[ loop[loop3] ];
-
+	private bool IsTriangleOverlappingLoop(int point0, int point1, int point2, List<int> loop, List<bool> concavity) {
 		Vector3 triangle0 = points[point0];
 		Vector3 triangle1 = points[point1];
 		Vector3 triangle2 = points[point2];
@@ -221,6 +212,30 @@ public class Triangulation : MonoBehaviour {
 		return Vector3.Dot(line1, Vector3.Cross(line0, normalPlane) ) > 0.0f;
 	}
 
+	//For each loop, check the three points. make vectors of P1-P0 && P2-P1. Check if this line pair is concave.
+	//Store these as a big list of bools of "concave" or "not concave". We don't really care about HOW concave they
+	//  are so much as if they're just concave in general.
+	private bool LocateConcavities() {
+		concavities = new List<List<bool>>();
+
+		foreach (List<int> loop in loops) {
+			List<bool> concavity = new List<bool>(loop.Count);
+
+			for (int i = 0; i < loop.Count; i++) {
+				int point0 = edges[loop[i] ];
+				int point1 = edges[loop[(i + 1) % loop.Count] ];
+				int point2 = edges[loop[(i + 2) % loop.Count] ];
+
+				Vector3 firstLine = points[point1] - points[point0];
+				Vector3 secondLine = points[point2] - points[point1];
+
+				concavity.Add(CheckLinePairConcavity(firstLine, secondLine));
+			}
+			concavities.Add(concavity);
+		}
+	}
+
+
 	private bool MergeLoops() {
 		//TODO: IMPLEMENT ME
 		//find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
@@ -235,10 +250,6 @@ public class Triangulation : MonoBehaviour {
 	private bool LocateLoops() {
 		//TODO: IMPLEMENT ME
 		//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edges end the loop.
-	}
-	private bool LocateConcavities() {
-		//TODO: IMPLEMENT ME
-		//for each loop, check the three points. make vectors of P1-P0 && P2-P1. Check if this line pair is concave.
 	}
 
 }
