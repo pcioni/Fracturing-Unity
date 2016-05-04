@@ -240,7 +240,29 @@ public class Triangulation : MonoBehaviour {
 	}
 
 	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triPoint0, Vector3 triPoint1, Vector3 triPoint2) {
-		//TODO: IMPLEMENT ME
+
+		//This if statement checks to see if the point is on the same plane as the triangle.
+		if (Vector3.Dot (triPoint2 - triPoint0, Vector3.Cross (triPoint1 - triPoint0, point - triPoint2)) == 0) {
+
+			//If the point is, then it uses the Barycentric coordinates to check whether or not the point is within the 2D triangle.
+			Vector3 v0 = triPoint2 - triPoint0;
+			Vector3 v1 = triPoint1 - triPoint0;
+			Vector3 v2 = point - triPoint0;
+
+			float dot00 = Vector3.Dot (v0, v0);
+			float dot01 = Vector3.Dot (v0, v1);
+			float dot02 = Vector3.Dot (v0, v2);
+			float dot11 = Vector3.Dot (v1, v1);
+			float dot12 = Vector3.Dot (v1, v2);
+
+			float invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+			float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+			float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+			return (u >= 0 && v >= 0 && u + v < 1);
+		} else {
+			return false;
+		}
 	}
 
 	private bool FindClosestPointInTriangle(int first, int second, int third, List<int> loop, out int loopIndex, out int loopLocation) {
