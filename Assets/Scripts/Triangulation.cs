@@ -74,6 +74,7 @@ public class Triangulation : MonoBehaviour {
 					//Evaluate loop merge
 					int swallowedLoopIndex;
 
+					//TODO: also dont use ref vars here too pls
 					if (MergeLoops(first, second, third, loop, concavity, out swallowedLoopIndex)) {
 						if (swallowedLoopIndex < i) 
 							i--; // Merge occured; adjust loop index
@@ -166,25 +167,6 @@ public class Triangulation : MonoBehaviour {
 		}
 	}
 
-	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triangle0, Vector3 triangle1, Vector3 triangle2) {
-		Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
-
-		//Discard size zero triangles
-		if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
-			return false;
-
-		Vector3 pointTo0 = triangle0 - point;
-		Vector3 pointTo1 = triangle1 - point;
-		Vector3 pointTo2 = triangle2 - point;
-
-		if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
-			|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
-			|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
-		{ return false; }
-
-		return true;
-	}
-
 	//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
 	//A lovely gift from github.
 	private bool IsTriangleOverlappingLoop(int point0, int point1, int point2, List<int> loop, List<bool> concavity) {
@@ -215,7 +197,7 @@ public class Triangulation : MonoBehaviour {
 	//For each loop, check the three points. make vectors of P1-P0 && P2-P1. Check if this line pair is concave.
 	//Store these as a big list of bools of "concave" or "not concave". We don't really care about HOW concave they
 	//  are so much as if they're just concave in general.
-	private bool LocateConcavities() {
+	private void LocateConcavities() {
 		concavities = new List<List<bool>>();
 
 		foreach (List<int> loop in loops) {
@@ -236,9 +218,39 @@ public class Triangulation : MonoBehaviour {
 	}
 
 
-	private bool MergeLoops() {
+	//Find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
+	//TODO: don't use ref vars pls
+	private bool MergeLoops(int first, int second, int third, List<int> loop, List<bool> concavity, out int swallowedLoopIndex) {
+		int otherLoopIndex, otherLoopLocation;
+
+		if (FindClosestPointInTriangle(first, second, third, loop, out otherLoopIndex, out otherLoopLocation)) {
+			//Swallow the other loop
+			InsertLoop(first, loop, concavity, otherLoopLocation, loops[otherLoopIndex], concavities[otherLoopIndex]);
+		
+			//Remove the obsolete loop
+			loops.RemoveAt(otherLoopIndex);
+			concavities.RemoveAt(otherLoopIndex);
+			swallowedLoopIndex = otherLoopIndex;
+
+			return true;
+		}
+
+		swallowedLoopIndex = -1;
+		return false;
+	}
+
+	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triPoint0, Vector3 triPoint1, Vector3 triPoint2) {
 		//TODO: IMPLEMENT ME
-		//find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
+	}
+
+	private bool FindClosestPointInTriangle(int first, int second, int third, List<int> loop, out int loopIndex, out int loopLocation) {
+		//TODO: IMPLEMENT ME
+		//What the title says. Given three points of a triangle and their respective loop, find the closest point.
+	}
+	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
+		//TODO: IMPLEMENT ME
+		//Insert a loop into a mesh give the given attributes. 
+		//This effectively "closes" the hole in the original mesh.
 	}
 	private void FillTriangle() {
 		//TODO: IMPLEMENT ME
@@ -253,3 +265,22 @@ public class Triangulation : MonoBehaviour {
 	}
 
 }
+
+/*
+ * 		Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
+
+		//Discard size zero triangles
+		if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
+			return false;
+
+		Vector3 pointTo0 = triangle0 - point;
+		Vector3 pointTo1 = triangle1 - point;
+		Vector3 pointTo2 = triangle2 - point;
+
+		if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
+			|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
+			|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
+		{ return false; }
+
+		return true;
+		*/
