@@ -136,6 +136,111 @@ public class ConvexHull : MonoBehaviour {
 		triangles.Clear();
 	}
 
+	public Mesh GetMesh() {
+		if (!IsEmpty) { //TODO: might not need this if
+			// Create vertex array
+			Vector3[] vertices = new Vector3[this.vertices.Count];
+			Vector3[] normals = new Vector3[this.normals.Count];
+			Vector4[] tangents = new Vector4[this.tangents.Count];
+			Vector2[] uvs = new Vector2[this.uvs.Count];
+
+			this.vertices.CopyTo(vertices, 0);
+			this.normals.CopyTo(normals, 0);
+			this.tangents.CopyTo(tangents, 0);
+			this.uvs.CopyTo(uvs, 0);
+
+			// Create index array
+			int[] indices = new int[triangles.Count * 3];
+
+			int count = 0;
+
+			foreach (Triangle triangle in triangles) {
+				indices[count++] = triangle.vertex0;
+				indices[count++] = triangle.vertex1;
+				indices[count++] = triangle.vertex2;
+			}
+
+			// Create output mesh
+			Mesh mesh = new Mesh();
+
+			mesh.vertices = vertices;
+			mesh.normals = normals;
+			mesh.tangents = tangents;
+			mesh.uv = uvs;
+			mesh.triangles = indices;
+
+			return mesh;
+		}
+		return null; //TODO: or this
+	}
+
+	public void Split(Vector3 localPointOnPlane, Vector3 localPlaneNormal, bool fillCut, UvMapper uvMapper, out Hull a, out Hull b) {
+		if (localPlaneNormal == Vector3.zero) 
+			localPlaneNormal = Vector3.up;
+
+		a = new ConvexHull(this);
+		b = new ConvexHull(this);
+
+		//set indecies of edge array
+		int pointCount, edgeCount = 0;
+		foreach (Point point in points)
+			point.index = pointCount++;
+		foreach (Edge edge in edges)
+			edge.index = edgeCount++;
+
+		bool[] pointAbovePlane = AssignPoints(a, b, localPointOnPlane, localPlaneNormal);
+
+		int[] oldToNewVertex = AssignVertices(a, b, pointAbovePlane);
+
+		bool[] edgeIntersectsPlane;
+		EdgeHit[] edgeHits;
+
+		AssignEdges(a, b, pointAbovePlane, localPointOnPlane, localPlaneNormal, out edgeIntersectsPlane, out edgeHits);
+
+		IList<Edge> cutEdgesA, cutEdgesB;
+
+		AssignTriangles(a, b, pointAbovePlane, edgeIntersectsPlane, edgeHits, oldToNewVertex, out cutEdgesA, out cutEdgesB);
+
+		if (fillCut)
+		{
+			SortCutEdges(cutEdgesA, cutEdgesB);
+
+			FillCutEdges(a, b, cutEdgesA, cutEdgesB, localPlaneNormal, uvMapper);
+		}
+
+		//TODO: might not need this
+		//ValidateOutput(a, b, localPlaneNormal);
+
+		//TODO: or this
+		Clear();
+	}
+
+	private bool[] AssignPoints(ConvexHull a, ConvexHull b, Vector3 pointOnPlane, Vector3 planeNormal) {
+		bool[] pointAbovePlane = new bool[points.Count];
+		foreach (Point point in points) {
+			bool abovePlane = Vector3.Dot(point.position - pointOnPlane, planeNormal) >= 0.0f;
+			pointAbovePlane[point.index] = abovePlane;
+			if (abovePlane)
+				a.points.Add(point);
+			else
+				b.points.Add(point);
+		}
+		return pointAbovePlane;
+	}
+
+	private int[] AssignVertices(ConvexHull a, ConvexHull b, bool[] pointAbovePlane) {
+		int[] oldToNewVertex = new int[vertices.Count];
+		for (int i = 0; i < vertices.Count; i++) {
+			Point correspondingPoint = vertexPoints[i];
+			if (pointAbovePlane[correspondingPoint.index])
+				a.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint, out oldToNewVertex[i]);
+			else
+				b.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint, out oldToNewVertex[i]);
+		}
+		return oldToNewVertex;
+	}
+
+
 }
 
 
