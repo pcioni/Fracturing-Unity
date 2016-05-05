@@ -17,6 +17,21 @@ public class ConvexHull : MonoBehaviour {
 	private List<Triangle> triangles;
 
 	//CONSTRUCTOR
+	public ConvexHull(ConvexHull reference) {
+		int vertexCount = reference.vertices.Count * 2;
+
+		vertices = new List<Vector3>(vertexCount);
+		normals = new List<Vector3>(vertexCount);
+		tangents = new List<Vector4>(vertexCount);
+		uvs = new List<Vector2>(vertexCount);
+
+		vertexPoints = new List<Point>(vertexCount);
+
+		points = new List<Point>(reference.points.Count * 2);
+		edges = new List<Edge>(reference.edges.Count * 2);
+		triangles = new List<Triangle>(reference.triangles.Count * 2);
+	}
+
 	public ConvexHull(Mesh mesh) {
 		vertices = new List<Vector3>(mesh.vertices);
 		normals = new List<Vector3>(mesh.normals);
@@ -84,14 +99,43 @@ public class ConvexHull : MonoBehaviour {
 		return points.Count < 4 || edges.Count < 6 || triangles.Count < 4;
 	}
 
+	private void AddTriangle(int vertex0, int vertex1, int vertex2) {
+		Point point0 = vertexPoints[vertex0];
+		Point point1 = vertexPoints[vertex1];
+		Point point2 = vertexPoints[vertex2];
 
-	void Start () {
-	
+		Edge edge0 = AddUniqueEdge(point0, point1);
+		Edge edge1 = AddUniqueEdge(point1, point2);
+		Edge edge2 = AddUniqueEdge(point2, point0);
+
+		Triangle triangle = new Triangle(vertex0, vertex1, vertex2, point0, point1, point2, edge0, edge1, edge2);
+
+		triangles.Add(triangle);
 	}
-	
-	void Update () {
-	
+
+	private void AddVertex(Vector3 vertex, Vector3 normal, Vector4 tangent, Vector2 uv, Point point) {
+		vertices.Add(vertex);
+		normals.Add(normal);
+		tangents.Add(tangent);
+		uvs.Add(uv);
+		vertexPoints.Add(point);
+		return vertices.Count;
 	}
+
+	//TODO: might not need this
+	public void Clear() {
+		vertices.Clear();
+		normals.Clear();
+		tangents.Clear();
+		uvs.Clear();
+
+		vertexPoints.Clear();
+
+		points.Clear();
+		edges.Clear();
+		triangles.Clear();
+	}
+
 }
 
 

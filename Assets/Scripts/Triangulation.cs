@@ -312,17 +312,103 @@ public class Triangulation : MonoBehaviour {
 		return result;
 	}
 	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
-		//TODO: IMPLEMENT ME
 		//Insert a loop into a mesh give the given attributes. 
 		//This effectively "closes" the hole in the original mesh.
+		int insertPoint = edges[loop[insertLocation]];
+		int anchorPoint = edges[otherLoop[otherAnchorLocation]];
+
+		edges.Add(anchorPoint);
+		edges.Add(insertPoint);
+		edges.Add(insertPoint);
+		edges.Add(anchorPoint);
+
+		duplicateEdges.Add(edges.Count); //Save the last added duplicate edge
+		int[] insertLoop = new int[otherLoop.Count + 2]; //Insert the other loop into this loop
+		bool[] insertConcavity = new bool[otherConcavity.Count + 2];
+		int index = 0;
+		insertLoop[index] = edges.Count;
+		insertConcavity[index++] = false;
+
+		for (int i = otherAnchorLocation; i < otherLoop.Count; i++) {
+			insertLoop[index] = otherLoop[i];
+			insertConcavity[index++] = otherConcavity[i];
+		}
+		for (int i = 0; i < otherAnchorLocation; i++) {
+			insertLoop[index] = otherLoop[i];
+			insertConcavity[index++] = otherConcavity[i];
+		}
+
+		insertLoop[index] = edges.Count;
+		insertConcavity[index] = false;
+		loop.InsertRange(insertLocation, insertLoop);
+		concavity.InsertRange(insertLocation, insertConcavity);
+
+		// Update concavity
+		int previousLocation;
+		if (insertLocation == 0) 
+			previousLocation = loop.Count - 1;
+		else
+			previousLocation = insertLocation - 1;
+		
+		UpdateConcavity(previousLocation, loop, concavity);
+		UpdateConcavity(insertLocation, loop, concavity);
+		UpdateConcavity(insertLocation + otherLoop.Count, loop, concavity);
+		UpdateConcavity(insertLocation + otherLoop.Count + 1, loop, concavity);
 	}
+
+	private void UpdateConcavity(int index, List<int> loop, List<bool> concavity) {
+		int firstEdge = loop[index];
+		int secondEdge = loop[(index + 1) % loop.Count];
+
+		Vector3 firstLine = points[edges[firstEdge + 1]] - points[edges[firstEdge]];
+		Vector3 secondLine = points[edges[secondEdge + 1]] - points[edges[secondEdge]];
+
+		concavity[index] = CheckLinePairConcavity(firstLine, secondLine);
+	}
+
 	private void FillTriangle(int zero, int first, int second, int third, List<int> loop, List<bool> concavity) {
-		//TODO: IMPLEMENT ME
-		//fookin gross eh'
 		//create a new triangle out of 3 points. Create the 3 new tri edges.
 		//Update the concavity using a "zero-line", "cross-line", and "third-line".
 		//check the concavity of the ZeroCross and CrossThird pairs.
+
+		int firstPoint = edges[loop[first]];
+		int secondPoint = edges[loop[second]];
+		int thirdPoint = edges[loop[third]];
+
+		int crossEdge;
+
+		if (loop.Count != 3) {
+			//Create the cross edge
+			crossEdge = edges.Count;
+			edges.Add(firstPoint);
+			edges.Add(thirdPoint);
+		}
+		else
+			crossEdge = loop[third]; //Use the third edge as the cross edge
+
+		// Add new triangle
+		triangles.Add(firstPoint);
+		triangles.Add(secondPoint);
+		triangles.Add(thirdPoint);
+		triangleEdges.Add(loop[first]);
+		triangleEdges.Add(loop[second]);
+		triangleEdges.Add(crossEdge);
+
+		// Update loop
+		loop[second] = crossEdge;
+		loop.RemoveAt(first);
+
+		// Update concavity; always update in order to support zero-length edges
+		Vector3 zeroLine = points[firstPoint] - points[edges[loop[zero]]];
+		Vector3 crossLine = points[thirdPoint] - points[firstPoint];
+		Vector3 thirdLine = points[edges[loop[third] + 1]] - points[thirdPoint];
+
+		concavity[zero] = CheckLinePairConcavity(zeroLine, crossLine);
+
+		concavity[second] = CheckLinePairConcavity(crossLine, thirdLine);
+		concavity.RemoveAt(first);
 	}
+
 	private bool LocateLoops() {
 		//TODO: IMPLEMENT ME
 		//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edge connects with prev edge.

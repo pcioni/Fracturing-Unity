@@ -18,7 +18,7 @@ public class FractureMain : MonoBehaviour {
 	public void OnCollisionEnter(Collision c) {
 		foreach (ContactPoint cp in c.contacts) {
 			if (cp.otherCollider == c.collider)
-				Fracture(cp.point);
+				Fracture(transform.InverseTransformPoint(cp.point));
 		}
 	}
 
@@ -37,23 +37,26 @@ public class FractureMain : MonoBehaviour {
 		}
 	}
 
-
-
 	public void SplitPlanes(Plane[] planes) {
 		if (planes != null && planes.Length > 0 && hull != null && !hull.IsEmpty()) {
-			Plane[] localPlanes = CreateLocalPlanes(planes);
-			List<ConvexHull> newHulls = CreateNewConvexHulls(localPlanes);
+			planes = createLocalPlanes(planes);
+			List<ConvexHull> newHulls = CreateNewConvexHulls(planes);
 			GameObject[] newGameObjects = CreateNewGameObjects(newHulls);
 			Destroy(gameObject);
 		}
 	}
 
-	private Plane[] CreateLocalPlanes(Plane[] planes) {
-		//TODO: Implement this
-		Plane[] newLocalPlanes = new Plane[planes.Length];
-		return newLocalPlanes;
+	//TODO: might not need this
+	private Plane[] createLocalPlanes(Plane[] planes) {
+		for (int i = 0; i < planes.Length; i++) {
+			Vector3 localNormal = transform.InverseTransformDirection(planes[i].normal);
+			localNormal.Scale(transform.localScale);
+			localNormal.Normalize();
+			planes[i].normal = localNormal;
+		}
+		return planes;
 	}
-
+	
 	private List<ConvexHull> CreateNewConvexHulls(Plane[] localPlanes) {
 		//TODO: Implement this
 		List<ConvexHull> newConvexHulls = new List<ConvexHull>(); 
