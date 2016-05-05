@@ -277,13 +277,28 @@ public class Triangulation : MonoBehaviour {
 
 		int closestLoopIndex = -1;
 		int closestLoopLocation = 0;
-		float closestDistance = 0.0f;
+		float closestDistance = -1f;
 
 		Vector3 triPoint1 = points[edges[loop[first]]];
 		Vector3 triPoint2 = points[edges[loop[second]]];
 		Vector3 triPoint3 = points[edges[loop[third]]];
 
 		Vector3 triPoint1Normal = Vector3.Cross(normalPlane, triPoint2 - triPoint1);
+
+		for (int x = 0; x < loops.Count; x++) {
+			if (loop != loops [x]) {
+				for (int c = 0; c < loops [x].Count; c++) {
+					Vector3 point = points [edges [loops [x] [c]]];
+					if (IsPointInsideTriangle (point, triPoint1, triPoint2, triPoint3)) {
+						if (Vector3.SqrMagnitude (point - triPoint1Normal) < closestDistance || closestDistance == -1f) {
+							closestLoopIndex = x;
+							closestLoopLocation = c;
+							closestDistance = -1f;
+						}
+					}
+				}
+			}
+		}
 
 		int[] result = new int[2];  //0 = loopIndex, 1 = loopLocation
 		result[0] = closestLoopIndex;
