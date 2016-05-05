@@ -3,6 +3,18 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
+
+//Creates a convex hull out of geometry data.
+/*
+ * http://answers.unity3d.com/questions/380233/generating-a-convex-hull.html
+ * https://miconvexhull.codeplex.com/
+ * http://answers.unity3d.com/questions/983425/creating-a-convex-mesh-not-collider.html
+ * https://www.reddit.com/r/Unity3D/comments/3q9qv9/spherical_convex_hull_for_my_planet_generator/?
+ * http://www.gdcvault.com/play/1020141/Physics-for-Game-Programmers
+ * http://www.qhull.org/
+ * http://diskhkme.blogspot.com/2015/11/convex-hull-algorithm-in-unity-5.html
+ * https://github.com/abrarjahin/QuickHull2D_unity_js
+ */
 public class ConvexHull : MonoBehaviour {
 
 	private List<Vector2> uvs; //I don't actually know if we'll implement this
@@ -197,14 +209,12 @@ public class ConvexHull : MonoBehaviour {
 
 		AssignEdges(a, b, pointAbovePlane, localPointOnPlane, localPlaneNormal, out edgeIntersectsPlane, out edgeHits);
 
-		IList<Edge> cutEdgesA, cutEdgesB;
+		List<Edge>[] newTris = AssignTriangles(a, b, pointAbovePlane, edgeIntersectsPlane, edgeHits, oldToNewVertex);
+		List<Edge> cutEdgesA = newTris[0];
+		List<Edge> cutEdgesB = newTris[1];
 
-		AssignTriangles(a, b, pointAbovePlane, edgeIntersectsPlane, edgeHits, oldToNewVertex, out cutEdgesA, out cutEdgesB);
-
-		if (fillCut)
-		{
+		if (fillCut) {
 			SortCutEdges(cutEdgesA, cutEdgesB);
-
 			FillCutEdges(a, b, cutEdgesA, cutEdgesB, localPlaneNormal, uvMapper);
 		}
 
@@ -240,7 +250,161 @@ public class ConvexHull : MonoBehaviour {
 		return oldToNewVertex;
 	}
 
+	private void AssignEdges(ConvexHull a, ConvexHull b, bool[] pointAbovePlane, Vector3 pointOnPlane, Vector3 planeNormal, out bool[] edgeIntersectsPlane, out EdgeHit[] edgeHits) {
+		edgeIntersectsPlane = new bool[edges.Count];
+		edgeHits = new EdgeHit[edges.Count];
 
+		foreach (Edge edge in edges) {
+			bool abovePlane0 = pointAbovePlane[edge.point0.index];
+			bool abovePlane1 = pointAbovePlane[edge.point1.index];
+
+			if (abovePlane0 && abovePlane1)
+				a.edges.Add(edge);
+			else if (!abovePlane0 && !abovePlane1)
+				b.edges.Add(edge);
+			else {
+				//Split edge
+				float denominator = Vector3.Dot(edge.line, planeNormal);
+				float scalar = Mathf.Clamp01(Vector3.Dot(pointOnPlane - edge.point0.position, planeNormal) / denominator);
+				Vector3 intersection = edge.point0.position + edge.line * scalar;
+
+				//Create new points
+				Point pointA = new Point(intersection);
+				Point pointB = new Point(intersection);
+				a.points.Add(pointA);
+				b.points.Add(pointB);
+
+				//Create new edges
+				Edge splitA, splitB;
+				if (pointAbovePlane[edge.point0.index]) {
+					splitA = new Edge(pointA, edge.point0);
+					splitB = new Edge(pointB, edge.point1);
+				}
+				else {
+					splitA = new Edge(pointA, edge.point1);
+					splitB = new Edge(pointB, edge.point0);
+				}
+				a.edges.Add(splitA);
+				b.edges.Add(splitB);
+
+				//Set flags
+				edgeIntersectsPlane[edge.index] = true;
+				edgeHits[edge.index] = new EdgeHit();
+				edgeHits[edge.index].scalar = scalar;
+				edgeHits[edge.index].splitA = splitA;
+				edgeHits[edge.index].splitB = splitB;
+			}
+		}
+	}
+
+	private List<Edge>[] AssignTriangles(ConvexHull a, ConvexHull b, bool[] pointAbovePlane, bool[] edgeIntersectsPlane, EdgeHit[] edgeHits, int[] oldToNewVertex) {
+		List<Edge> cutEdgesA = new List<Edge>();
+		List<Edge> cutEdgesB = new List<Edge>();
+		List<Edge>[] result = new List<Edge>[2];
+
+		foreach (Triangle triangle in triangles) {
+			bool abovePlane0 = pointAbovePlane[triangle.point0.index];
+			bool abovePlane1 = pointAbovePlane[triangle.point1.index];
+			bool abovePlane2 = pointAbovePlane[triangle.point2.index];
+
+			if (abovePlane0 && abovePlane1 && abovePlane2) {
+				triangle.vertex0 = oldToNewVertex[triangle.vertex0];
+				triangle.vertex1 = oldToNewVertex[triangle.vertex1];
+				triangle.vertex2 = oldToNewVertex[triangle.vertex2];
+
+				a.triangles.Add(triangle);
+			}
+			else if (!abovePlane0 && !abovePlane1 && !abovePlane2) {
+				triangle.vertex0 = oldToNewVertex[triangle.vertex0];
+				triangle.vertex1 = oldToNewVertex[triangle.vertex1];
+				triangle.vertex2 = oldToNewVertex[triangle.vertex2];
+
+				b.triangles.Add(triangle);
+			}
+			else {
+				//Split triangle
+				Point topPoint;
+				Edge edge0, edge1, edge2;
+				int vertex0, vertex1, vertex2;
+
+				if (edgeIntersectsPlane[triangle.edge0.index] && edgeIntersectsPlane[triangle.edge1.index]) {
+					topPoint = triangle.point1;
+					edge0 = triangle.edge0;
+					edge1 = triangle.edge1;
+					edge2 = triangle.edge2;
+					vertex0 = triangle.vertex0;
+					vertex1 = triangle.vertex1;
+					vertex2 = triangle.vertex2;
+				}
+				else if (edgeIntersectsPlane[triangle.edge1.index] && edgeIntersectsPlane[triangle.edge2.index]) {
+					topPoint = triangle.point2;
+					edge0 = triangle.edge1;
+					edge1 = triangle.edge2;
+					edge2 = triangle.edge0;
+					vertex0 = triangle.vertex1;
+					vertex1 = triangle.vertex2;
+					vertex2 = triangle.vertex0;
+				}
+				else {
+					topPoint = triangle.point0;
+					edge0 = triangle.edge2;
+					edge1 = triangle.edge0;
+					edge2 = triangle.edge1;
+					vertex0 = triangle.vertex2;
+					vertex1 = triangle.vertex0;
+					vertex2 = triangle.vertex1;
+				}
+
+				EdgeHit edgeHit0 = edgeHits[edge0.index];
+				EdgeHit edgeHit1 = edgeHits[edge1.index];
+
+				//Convert edge hit scalars
+				float scalar0 = topPoint == edge0.point1 ? edgeHit0.scalar : 1.0f - edgeHit0.scalar;
+				float scalar1 = topPoint == edge1.point0 ? edgeHit1.scalar : 1.0f - edgeHit1.scalar;
+
+				Edge cutEdgeA, cutEdgeB;
+
+				if (pointAbovePlane[topPoint.index]) {
+					//Assign top triangle to A, bottom triangle to B
+					cutEdgeA = new Edge(edgeHit1.splitA.point0, edgeHit0.splitA.point0);
+					cutEdgeB = new Edge(edgeHit1.splitB.point0, edgeHit0.splitB.point0);
+
+					a.edges.Add(cutEdgeA);
+					b.edges.Add(cutEdgeB);
+
+					SplitTriangle(a, b, edgeHit0.splitA, edgeHit1.splitA, cutEdgeA, edgeHit0.splitB, edgeHit1.splitB, cutEdgeB, edge2, vertex0, vertex1, vertex2, scalar0, scalar1, oldToNewVertex);
+				}
+				else {
+					//Assign top triangle to B, bottom triangle to A
+					cutEdgeA = new Edge(edgeHit0.splitA.point0, edgeHit1.splitA.point0);
+					cutEdgeB = new Edge(edgeHit0.splitB.point0, edgeHit1.splitB.point0);
+
+					a.edges.Add(cutEdgeA);
+					b.edges.Add(cutEdgeB);
+
+					SplitTriangle(b, a, edgeHit0.splitB, edgeHit1.splitB, cutEdgeB, edgeHit0.splitA, edgeHit1.splitA, cutEdgeA, edge2, vertex0, vertex1, vertex2, scalar0, scalar1, oldToNewVertex);
+				}
+
+				cutEdgesA.Add(cutEdgeA);
+				cutEdgesB.Add(cutEdgeB);
+			}
+		}
+		result[0] = cutEdgesA;
+		result[1] = cutEdgesB;
+		return result;
+	}
+
+
+	private void SplitTriangle(ConvexHull topHull, ConvexHull bottomHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
+		//TODO: IMPLEMENT ME
+		//Graphics Programmers on forums have --zero-- idea how to convey ideas to laymen. I found someone with
+		//   basically my exact question, and the top rated response was this disaster. "I have a great book on this 
+		//	 topic if you're interested!". Yeah, no thanks, I just want to split my triangle.
+		//   http://stackoverflow.com/questions/24806221/split-a-triangle-into-smaller-triangles like why.
+		//
+		//Anyway, this is some sort of hybrid-inbred bastard child of Delaunay and StackOverflowUserBullshit with a few 
+		//   genetic sprinkles of other random Math / Unity forums. 
+	}
 }
 
 
