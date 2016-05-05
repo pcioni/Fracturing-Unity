@@ -125,7 +125,7 @@ public class ConvexHull : MonoBehaviour {
 		triangles.Add(triangle);
 	}
 
-	private void AddVertex(Vector3 vertex, Vector3 normal, Vector4 tangent, Vector2 uv, Point point) {
+	private int AddVertex(Vector3 vertex, Vector3 normal, Vector4 tangent, Vector2 uv, Point point) {
 		vertices.Add(vertex);
 		normals.Add(normal);
 		tangents.Add(tangent);
@@ -206,7 +206,7 @@ public class ConvexHull : MonoBehaviour {
 
 		bool[] edgeIntersectsPlane;
 		EdgeHit[] edgeHits;
-
+		//"out" parameter to keep this piece-a-junk from pervading it's sticky fingers throughout the entire program
 		AssignEdges(a, b, pointAbovePlane, localPointOnPlane, localPlaneNormal, out edgeIntersectsPlane, out edgeHits);
 
 		List<Edge>[] newTris = AssignTriangles(a, b, pointAbovePlane, edgeIntersectsPlane, edgeHits, oldToNewVertex);
@@ -243,9 +243,9 @@ public class ConvexHull : MonoBehaviour {
 		for (int i = 0; i < vertices.Count; i++) {
 			Point correspondingPoint = vertexPoints[i];
 			if (pointAbovePlane[correspondingPoint.index])
-				a.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint, out oldToNewVertex[i]);
+				oldToNewVertex[i] = a.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint);
 			else
-				b.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint, out oldToNewVertex[i]);
+				oldToNewVertex[i]=  b.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint);
 		}
 		return oldToNewVertex;
 	}
@@ -394,9 +394,8 @@ public class ConvexHull : MonoBehaviour {
 		return result;
 	}
 
-
-	private void SplitTriangle(ConvexHull topHull, ConvexHull bottomHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
-		//TODO: IMPLEMENT ME
+	//TODO:fix pls
+	private void HullifyTriangle(ConvexHull topHull, ConvexHull bottomHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
 		//Graphics Programmers on forums have --zero-- idea how to convey ideas to laymen. I found someone with
 		//   basically my exact question, and the top rated response was this disaster. "I have a great book on this 
 		//	 topic if you're interested!". Yeah, no thanks, I just want to split my triangle.
@@ -404,6 +403,82 @@ public class ConvexHull : MonoBehaviour {
 		//
 		//Anyway, this is some sort of hybrid-inbred bastard child of Delaunay and StackOverflowUserBullshit with a few 
 		//   genetic sprinkles of other random Math / Unity forums. 
+
+		Vector3 n0 = normals[vertex0];
+		Vector3 n1 = normals[vertex1];
+		Vector3 n2 = normals[vertex2];
+
+		Vector4 t0 = tangents[vertex0];
+		Vector4 t1 = tangents[vertex1];
+		Vector4 t2 = tangents[vertex2];
+
+		//TODO: are we using UVs? Who knows!
+		Vector2 uv0 = uvs[vertex0];
+		Vector2 uv1 = uvs[vertex1];
+		Vector2 uv2 = uvs[vertex2];
+
+		//Calculate the cut vertex data by interpolating original triangle values
+		Vector3 cutNormal0 = new Vector3();
+		cutNormal0.x = n0.x + (n1.x - n0.x) * scalar0;
+		cutNormal0.y = n0.y + (n1.y - n0.y) * scalar0;
+		cutNormal0.z = n0.z + (n1.z - n0.z) * scalar0;
+		cutNormal0.Normalize();
+
+		Vector3 cutNormal1 = new Vector3();
+		cutNormal1.x = n1.x + (n2.x - n1.x) * scalar1;
+		cutNormal1.y = n1.y + (n2.y - n1.y) * scalar1;
+		cutNormal1.z = n1.z + (n2.z - n1.z) * scalar1;
+		cutNormal1.Normalize();
+
+		Vector4 cutTangent0 = new Vector4();
+		cutTangent0.x = t0.x + (t1.x - t0.x) * scalar0;
+		cutTangent0.y = t0.y + (t1.y - t0.y) * scalar0;
+		cutTangent0.z = t0.z + (t1.z - t0.z) * scalar0;
+		cutTangent0.Normalize();
+		cutTangent0.w = t0.w;
+
+		Vector4 cutTangent1 = new Vector4();
+		cutTangent1.x = t1.x + (t2.x - t1.x) * scalar1;
+		cutTangent1.y = t1.y + (t2.y - t1.y) * scalar1;
+		cutTangent1.z = t1.z + (t2.z - t1.z) * scalar1;
+		cutTangent1.Normalize();
+		cutTangent1.w = t1.w;
+
+		//TODO: I put this here because the internet guide said to. Dunno if we'll use it.
+		Vector2 cutUv0 = new Vector2();
+		cutUv0.x = uv0.x + (uv1.x - uv0.x) * scalar0;
+		cutUv0.y = uv0.y + (uv1.y - uv0.y) * scalar0;
+		Vector2 cutUv1 = new Vector2();
+		cutUv1.x = uv1.x + (uv2.x - uv1.x) * scalar1;
+		cutUv1.y = uv1.y + (uv2.y - uv1.y) * scalar1;
+
+		//Add the cut vertices to the hulls
+		int topCutVertex0, topCutVertex1;
+		topCutVertex0 = topHull.AddVertex(topEdge0.point0.position, cutNormal0, cutTangent0, cutUv0, topEdge0.point0);
+		topCutVertex1 = topHull.AddVertex(topEdge1.point0.position, cutNormal1, cutTangent1, cutUv1, topEdge1.point0);
+
+		int bottomCutVertex0, bottomCutVertex1;
+		bottomCutVertex0 = bottomHull.AddVertex(bottomEdge0.point0.position, cutNormal0, cutTangent0, cutUv0, bottomEdge0.point0);
+		bottomCutVertex1 = bottomHull.AddVertex(bottomEdge1.point0.position, cutNormal1, cutTangent1, cutUv1, bottomEdge1.point0);
+
+		//Create the top of the original triangle
+		Triangle topTriangle = new Triangle(topCutVertex0, oldToNewVertex[vertex1], topCutVertex1, topEdge0.point0, topEdge0.point1, topEdge1.point0, topEdge0, topEdge1, topCutEdge);
+		topHull.triangles.Add(topTriangle);
+
+		//Create the bottom of the original triangle
+		Edge bottomCrossEdge = new Edge(bottomEdge0.point1, bottomEdge1.point0);
+
+		Triangle bottomTriangle0 = new Triangle(oldToNewVertex[vertex0], bottomCutVertex0, bottomCutVertex1, bottomEdge0.point1, bottomEdge0.point0, bottomEdge1.point0, bottomEdge0, bottomCutEdge, bottomCrossEdge);
+		Triangle bottomTriangle1 = new Triangle(oldToNewVertex[vertex0], bottomCutVertex1, oldToNewVertex[vertex2], bottomEdge0.point1, bottomEdge1.point0, bottomEdge1.point1, bottomCrossEdge, bottomEdge1, bottomEdge2);
+
+		bottomHull.edges.Add(bottomCrossEdge);
+		bottomHull.triangles.Add(bottomTriangle0);
+		bottomHull.triangles.Add(bottomTriangle1);
+	}
+
+	private void SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
+		//TODO: DAN SPLIT THIS SHIT YO
+
 	}
 }
 
