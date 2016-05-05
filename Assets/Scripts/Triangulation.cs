@@ -285,11 +285,16 @@ public class Triangulation : MonoBehaviour {
 
 		Vector3 triPoint1Normal = Vector3.Cross(normalPlane, triPoint2 - triPoint1);
 
+		//iterate through all existing loops
 		for (int x = 0; x < loops.Count; x++) {
+			//if it isn't the loop we've been passed
 			if (loop != loops [x]) {
+				//iterate through all points in the loop
 				for (int c = 0; c < loops [x].Count; c++) {
 					Vector3 point = points [edges [loops [x] [c]]];
+					//check if the point is in the triangle we've been passed
 					if (IsPointInsideTriangle (point, triPoint1, triPoint2, triPoint3)) {
+						//check if the point is closer than the current closest point
 						if (Vector3.SqrMagnitude (point - triPoint1Normal) < closestDistance || closestDistance == -1f) {
 							closestLoopIndex = x;
 							closestLoopLocation = c;
@@ -341,6 +346,8 @@ public class Triangulation : MonoBehaviour {
 	//Thanks math textbook
 	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
 		//TODO: DAAAAN FIX ME
+		//Fixed ;D
+		return (Mathf.Acos((Vector3.Dot(line0, line1)) / (Vector3.Magnitude(line0) * Vector3.Magnitude(line1))) > 0.0f);
 	}
 
 }
