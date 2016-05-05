@@ -12,6 +12,8 @@ using System.Collections.Generic;
  *   http://digitalscholarship.unlv.edu/cgi/viewcontent.cgi?article=2314&context=thesesdissertations
  *   https://arxiv.org/ftp/arxiv/papers/1212/1212.6038.pdf
  *   https://github.com/libgdx/libgdx/blob/master/gdx/src/com/badlogic/gdx/math/EarClippingTriangulator.java
+ *   http://stackoverflow.com/questions/2924795/fastest-way-to-compute-point-to-triangle-distance-in-3d
+ *   http://stackoverflow.com/questions/2924795/fastest-way-to-compute-point-to-triangle-distance-in-3d
  */
 public class Triangulation : MonoBehaviour {
 
@@ -286,6 +288,7 @@ public class Triangulation : MonoBehaviour {
 		int[] result = new int[2];  //0 = loopIndex, 1 = loopLocation
 		result[0] = closestLoopIndex;
 		result[1] = closestLoopLocation;
+
 		return result;
 	}
 	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
@@ -307,6 +310,17 @@ public class Triangulation : MonoBehaviour {
 		//   and clear loop.
 		loops = new List<List<int>>();
 		List<int> loop = new List<int>(edges.Count / 2);
+
+		for (int i = 0; i < edges.Count / 2; i *= 2) {
+			int edge = i * 2;
+			int endPoint = edges[edge + 1];
+			loop.Add(edge);
+			//Check if edge ends the loop
+			if (endPoint == edges[loop[0]]) {
+				loops.Add(loop);
+				loop = new List<int>();
+			}
+		}
 	}
 
 	//Thanks math textbook

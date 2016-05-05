@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class FractureMain : MonoBehaviour {
 
@@ -8,6 +9,11 @@ public class FractureMain : MonoBehaviour {
 	private int numCutsToMake = 2;
 
 	private ConvexHull hull;
+
+	public void Start() {
+		if (hull == null)
+			hull = new ConvexHull(GetComponent<MeshFilter>().mesh);
+	}
 
 	public void OnCollisionEnter(Collision c) {
 		foreach (ContactPoint cp in c.contacts) {
@@ -31,7 +37,34 @@ public class FractureMain : MonoBehaviour {
 		}
 	}
 
+
+
 	public void SplitPlanes(Plane[] planes) {
-		//TODO: Implement this
+		if (planes != null && planes.Length > 0 && hull != null && !hull.IsEmpty()) {
+			Plane[] localPlanes = CreateLocalPlanes(planes);
+			List<ConvexHull> newHulls = CreateNewConvexHulls(localPlanes);
+			GameObject[] newGameObjects = CreateNewGameObjects(newHulls);
+			Destroy(gameObject);
+		}
 	}
+
+	private Plane[] CreateLocalPlanes(Plane[] planes) {
+		//TODO: Implement this
+		Plane[] newLocalPlanes = new Plane[planes.Length];
+		return newLocalPlanes;
+	}
+
+	private List<ConvexHull> CreateNewConvexHulls(Plane[] localPlanes) {
+		//TODO: Implement this
+		List<ConvexHull> newConvexHulls = new List<ConvexHull>(); 
+		return newConvexHulls;
+	}
+
+	private GameObject[] CreateNewGameObjects(List<ConvexHull> newHulls) {
+		//TODO: Implement this
+		GameObject[] newGameObjects = new GameObject[newHulls.Count];
+		return newGameObjects;
+	}
+
+
 }

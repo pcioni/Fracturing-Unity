@@ -80,6 +80,11 @@ public class ConvexHull : MonoBehaviour {
 		}
 	}
 
+	public bool IsEmpty() {
+		return points.Count < 4 || edges.Count < 6 || triangles.Count < 4;
+	}
+
+
 	void Start () {
 	
 	}
