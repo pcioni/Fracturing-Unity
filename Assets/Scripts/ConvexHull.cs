@@ -510,7 +510,7 @@ public class ConvexHull : MonoBehaviour {
 
 	private List< List< Edge > > SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
 		//TODO: DAN SPLIT THIS SHIT YO
-		Point pointyc = new Point ((vertex0 + vertex1 + vertex2) / 9f);
+		Point pointyc = new Point ((vertex0 + vertex1 + vertex2) / 3f);
 		Point pointy0 = new Point (vertex0);
 		Point pointy1 = new Point (vertex1);
 		Point pointy2 = new Point (vertex2);
