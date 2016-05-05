@@ -10,15 +10,21 @@ public class FractureMain : MonoBehaviour {
 
 	private ConvexHull hull;
 
+	public float forceToFracture;
+
+	public bool fillCut = true;
+
 	public void Start() {
 		if (hull == null)
 			hull = new ConvexHull(GetComponent<MeshFilter>().mesh);
 	}
 
 	public void OnCollisionEnter(Collision c) {
-		foreach (ContactPoint cp in c.contacts) {
-			if (cp.otherCollider == c.collider)
-				Fracture(transform.InverseTransformPoint(cp.point));
+		if (c.impactForceSum.magnitude >= forceToFracture) {
+			foreach (ContactPoint cp in c.contacts) {
+				if (cp.otherCollider == c.collider)
+					Fracture (transform.InverseTransformPoint (cp.point));
+			}
 		}
 	}
 
@@ -58,8 +64,28 @@ public class FractureMain : MonoBehaviour {
 	}
 	
 	private List<ConvexHull> CreateNewConvexHulls(Plane[] localPlanes) {
-		//TODO: Implement this
 		List<ConvexHull> newConvexHulls = new List<ConvexHull>(); 
+		newConvexHulls.Add(hull);
+		foreach (Plane plane in localPlanes) {
+			int previousHullCount = newConvexHulls.Count;
+
+			for (int i = 0; i < previousHullCount; i++) {
+				ConvexHull previousHull = newConvexHulls[0];
+
+				//Split the previous hull
+				ConvexHull[] newHulls = previousHull.Split(plane.normal * -plane.distance, plane.normal, fillCut);
+				ConvexHull a = newHulls[0];
+				ConvexHull b = newHulls[1];
+
+				newConvexHulls.Remove(previousHull);
+
+				if (!a.IsEmpty)
+					newConvexHulls.Add(a);
+
+				if (!b.IsEmpty)
+					newConvexHulls.Add(b);
+			}
+		}
 		return newConvexHulls;
 	}
 

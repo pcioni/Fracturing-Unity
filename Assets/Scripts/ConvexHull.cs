@@ -186,12 +186,13 @@ public class ConvexHull : MonoBehaviour {
 		return null; //TODO: or this
 	}
 
-	public void Split(Vector3 localPointOnPlane, Vector3 localPlaneNormal, bool fillCut, UvMapper uvMapper, out Hull a, out Hull b) {
+	public ConvexHull[] Split(Vector3 localPointOnPlane, Vector3 localPlaneNormal, bool fillCut) {
 		if (localPlaneNormal == Vector3.zero) 
 			localPlaneNormal = Vector3.up;
 
-		a = new ConvexHull(this);
-		b = new ConvexHull(this);
+		ConvexHull[] result = new ConvexHull[2];
+		ConvexHull a = new ConvexHull(this);
+		ConvexHull b = new ConvexHull(this);
 
 		//set indecies of edge array
 		int pointCount, edgeCount = 0;
@@ -215,7 +216,7 @@ public class ConvexHull : MonoBehaviour {
 
 		if (fillCut) {
 			SortCutEdges(cutEdgesA, cutEdgesB);
-			FillCutEdges(a, b, cutEdgesA, cutEdgesB, localPlaneNormal, uvMapper);
+			FillCutEdges(a, b, cutEdgesA, cutEdgesB, localPlaneNormal);
 		}
 
 		//TODO: might not need this
@@ -223,6 +224,10 @@ public class ConvexHull : MonoBehaviour {
 
 		//TODO: or this
 		Clear();
+
+		result[0] = a;
+		result[1] = b;
+		return result
 	}
 
 	private bool[] AssignPoints(ConvexHull a, ConvexHull b, Vector3 pointOnPlane, Vector3 planeNormal) {
@@ -475,6 +480,33 @@ public class ConvexHull : MonoBehaviour {
 		bottomHull.triangles.Add(bottomTriangle0);
 		bottomHull.triangles.Add(bottomTriangle1);
 	}
+
+	private void SortCutEdges(IList<Edge> edgesA, IList<Edge> edgesB) {
+		Edge start = edgesA[0];
+		for (int i = 1; i < edgesA.Count; i++) {
+			Edge previous = edgesA[i - 1];
+			for (int j = i; j < edgesA.Count; j++) {
+				Edge edgeA = edgesA[j];
+
+				//Check if edge continues loop
+				if (previous.point1 == edgeA.point0) {
+					//Swap edges
+					edgesA[i] = edgeA;
+					edgesA[j] = edgesA[i];
+
+					edgesB[i] = edgesB[j];
+					edgesB[j] = edgesB[i];
+
+					//Check if edge eneds loop
+					if (edgeA.point1 == start.point0)
+						start = null;
+
+					break;
+				}
+			}
+		}
+	}
+
 
 	private void SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
 		//TODO: DAN SPLIT THIS SHIT YO
