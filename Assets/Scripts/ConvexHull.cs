@@ -227,7 +227,7 @@ public class ConvexHull : MonoBehaviour {
 
 		result[0] = a;
 		result[1] = b;
-		return result
+		return result;
 	}
 
 	private bool[] AssignPoints(ConvexHull a, ConvexHull b, Vector3 pointOnPlane, Vector3 planeNormal) {
@@ -508,9 +508,20 @@ public class ConvexHull : MonoBehaviour {
 	}
 
 
-	private void SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
+	private List< List< Edge > > SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
 		//TODO: DAN SPLIT THIS SHIT YO
-
+		Point pointyc = new Point ((vertex0 + vertex1 + vertex2) / 9f);
+		Point pointy0 = new Point (vertex0);
+		Point pointy1 = new Point (vertex1);
+		Point pointy2 = new Point (vertex2);
+		Edge edgey0 = new Edge (vertex0, pointyc);
+		Edge edgey1 = new Edge (vertex1, pointyc);
+		Edge edgey2 = new Edge (vertex2, pointyc);
+		List<List<Edge>> resulty = new List<List<Edge>>();
+		resulty.Add (new List<Edge> { edgey0, edgey1, new Edge(pointy0, pointy1) });
+		resulty.Add (new List<Edge> { edgey1, edgey2, new Edge(pointy1, pointy2) });
+		resulty.Add (new List<Edge> { edgey2, edgey0, new Edge(pointy2, pointy0) });
+		return resulty;
 	}
 }
 
