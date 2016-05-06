@@ -6,7 +6,7 @@ public class MouseShoot : MonoBehaviour {
 	public GameObject prefabToInstantiate;
 	
 	public float speed = 7.0f;
-	
+
 	public void Update() {
 		if (Input.GetMouseButtonDown(0) && prefabToInstantiate != null) {
 			Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -20,6 +20,9 @@ public class MouseShoot : MonoBehaviour {
 		if (Input.GetKeyDown(KeyCode.Space)) {
 			SceneManager.LoadScene("Main");
 		}
+
+
 	}
+
 
 }
