@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class MouseShoot : MonoBehaviour {
 	public GameObject prefabToInstantiate;
@@ -15,5 +16,10 @@ public class MouseShoot : MonoBehaviour {
 				newGameObject.GetComponent<Rigidbody>().velocity = mouseRay.direction * speed;
 			}
 		}
+
+		if (Input.GetKeyDown(KeyCode.Space)) {
+			SceneManager.LoadScene("Main");
+		}
 	}
+
 }
