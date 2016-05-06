@@ -524,6 +524,8 @@ public class ConvexHull {
 		////////////////////////
 
 		for (int i = 0; i < outlineEdgeCount; i++) {
+			if (i >= tangentsA.Length || i >= tangentsB.Length) 
+				continue;
 			verticesA[i] = a.AddVertex(outlinePoints[i], normalA, tangentsA[i], edgesA[i].point0);
 			verticesB[i] = b.AddVertex(outlinePoints[i], normalB, tangentsB[i], edgesB[i].point0);
 		}
