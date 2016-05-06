@@ -1,10 +1,9 @@
-﻿using UnityEngine;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 /*
  * A triangulation class based on Ear-Clipping methods.
- * Fills concave polygons with holes and respective geometry.
  * 
  * Based on the following sources:
  *   http://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
@@ -15,7 +14,7 @@ using System.Collections.Generic;
  *   http://stackoverflow.com/questions/2924795/fastest-way-to-compute-point-to-triangle-distance-in-3d
  *   http://stackoverflow.com/questions/2924795/fastest-way-to-compute-point-to-triangle-distance-in-3d
  */
-public class Triangulation : MonoBehaviour {
+public class Triangulation {
 
 	private List<Vector3> points;
 	private List<int> edges;
@@ -29,15 +28,14 @@ public class Triangulation : MonoBehaviour {
 	private Vector3 normalPlane;
 	private int initEdgeCount;
 
-	//CONSTRUCTOR
-	public Triangulation(List<Vector3> points, List<int> edges, Vector3 normalPlane) {
+	public Triangulation(IList<Vector3> points, IList<int> edges, Vector3 normalPlane) {
 		this.points = new List<Vector3>(points);
 		this.edges = new List<int>(edges);
 		this.triangles = new List<int>();
 		this.triangleEdges = new List<int>();
 
 		this.normalPlane = normalPlane;
-		this.initEdgeCount = edges.Count;
+		this.initEdgeCount = this.edges.Count;
 	}
 
 	public List<int[]> Fill() {
@@ -47,7 +45,6 @@ public class Triangulation : MonoBehaviour {
 		edgesTrisTriedges.Add(new int[]{});
 		edgesTrisTriedges.Add(new int[]{});
 
-		//Prepare triangulation
 		LocateLoops(); //ehehehe alliteration
 		LocateConcavities();
 		duplicateEdges = new List<int>();
@@ -61,8 +58,9 @@ public class Triangulation : MonoBehaviour {
 			int zero;
 			int index = 0;
 			int unsuitableTriangles = 0;
+
 			while (loop.Count >= 3) {
-				// Evaluate triangle
+				//Evaluate triangle
 				if (index == 0)
 					zero = loop.Count -1;
 				else
@@ -71,7 +69,7 @@ public class Triangulation : MonoBehaviour {
 				int second = (index + 1) % loop.Count;
 				int third = (index + 2) % loop.Count;
 
-				if (concavity[first] || IsTriangleOverlappingLoop(edges[loop[first]], edges[loop[second]], edges[loop[third]], loop, concavity)) {
+				if (concavity[first] || IsTriangleOverlappingLoop(first, second, third, loop, concavity)) {
 					//Triangle is not an ear
 					index++;
 					unsuitableTriangles++;
@@ -80,20 +78,19 @@ public class Triangulation : MonoBehaviour {
 					//Evaluate loop merge
 					int swallowedLoopIndex;
 
-					//TODO: also dont use ref vars here too pls
 					if (MergeLoops(first, second, third, loop, concavity, out swallowedLoopIndex)) {
-						if (swallowedLoopIndex < i) 
+						if (swallowedLoopIndex < i)
 							i--; // Merge occured; adjust loop index
 					}
-					else 
-						//No merge occured; fill triangle
+					else
+						//No merge occured, fill triangle
 						FillTriangle(zero, first, second, third, loop, concavity);
 
 					//Suitable triangles may have appeared
 					unsuitableTriangles = 0;
 				}
 
-				if (unsuitableTriangles >= loop.Count) 
+				if (unsuitableTriangles >= loop.Count)
 					break; //No suitable triangles in loop
 
 				//Wrap index
@@ -112,8 +109,7 @@ public class Triangulation : MonoBehaviour {
 			}
 		}
 
-		/* TODO: Check if this is necessary. No noticeable difference, 
-		 *  	 but smart people on the internet told me to use it.
+		//TODO: potentially? dunno, breaks everything
 		// Fill any remaining loops using triangle fans
 		for (int i = 0; i < loops.Count; i++) {
 			List<int> loop = loops[i];
@@ -122,77 +118,32 @@ public class Triangulation : MonoBehaviour {
 			while (loop.Count >= 3)
 				FillTriangle(0, 1, 2, 3 % loop.Count, loop, concavity);
 		}
-		*/
+
 
 		// Finish triangulation
 		RemoveDuplicateEdges();
 
-		//TODO: This doesn't really need to be it's own function.
 		edgesTrisTriedges = SetOutput(edgesTrisTriedges);
 		return edgesTrisTriedges;
 	}
 
-	private List<int[]> SetOutput(List<int[]> edgesTrisTriedges)
-	{
-		//Set edges
-		int newEdgeCount = edges.Count - initEdgeCount;
-		if (newEdgeCount > 0) {
-			edgesTrisTriedges[0] = new int[newEdgeCount];
-			edges.CopyTo(initEdgeCount, edgesTrisTriedges[0], 0, newEdgeCount);
-		}
-		else 
-			edgesTrisTriedges[0] = new int[0];
+	//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edge connects with prev edge.
+	//if it does, add it to the loop. if th ecurrent edge ends the loop, add the complete loop to loops
+	//   and clear loop.
+	private void LocateLoops() {
+		loops = new List<List<int>>();
+		List<int> loop = new List<int>(edges.Count / 2);
 
-		//Set triangles
-		edgesTrisTriedges[1] = triangles.ToArray();
-
-		//Set triangle edges
-		edgesTrisTriedges[2] = new int[triangleEdges.Count];
-
-		for (int i = 0; i < triangleEdges.Count; i++) 
-			edgesTrisTriedges[2][i] = triangleEdges[i] / 2;
-
-		return edgesTrisTriedges;
-	}
-
-	private void RemoveDuplicateEdges() {
-		for (int i = 0; i < duplicateEdges.Count; i++) {
-			int edge = duplicateEdges[i];
-			edges.RemoveRange(edge, 2); //Remove the duplicate edge
-
-			//Update indices in triangle edges
-			//TODO: consider doing this in a non-syntatically-moronic way.
-			for (int j = 0, l = i + 1; j < triangleEdges.Count || l < duplicateEdges.Count; j++, i++) {
-				if (l < duplicateEdges.Count && duplicateEdges[l] >= edge)
-					duplicateEdges[j] -= 2; //Edge is in front of the duplicate edge
-
-				if (j < triangleEdges.Count && triangleEdges[j] >= edge) 
-					triangleEdges[j] -= 2;  //edge is in front of the duplicate edge
-			}
-
-		}
-	}
-
-	//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
-	//A lovely gift from github.
-	private bool IsTriangleOverlappingLoop(int point0, int point1, int point2, List<int> loop, List<bool> concavity) {
-		Vector3 triangle0 = points[point0];
-		Vector3 triangle1 = points[point1];
-		Vector3 triangle2 = points[point2];
-
-		for (int i = 0; i < loop.Count; i++) {
-			if (concavity[i]) {
-				int reflexAngleVert = edges[loop[i] + 1];
-				//Skip points that aren't in the triangle
-				if (reflexAngleVert != point0 && reflexAngleVert != point1 && reflexAngleVert != point2) {
-					Vector3 point = points[reflexAngleVert];
-					//Check if reflex vertex is inside the triangle
-					if (IsPointInsideTriangle(point, triangle0, triangle1, triangle2)) 
-						return true;
-				}
+		for (int i = 0; i < edges.Count / 2; i++){
+			int edge = i * 2;
+			int endPoint = edges[edge + 1];
+			loop.Add(edge);
+			//Check if edge ends the loop
+			if (endPoint == edges[loop[0]]) {
+				loops.Add(loop);
+				loop = new List<int>();
 			}
 		}
-		return false;
 	}
 
 	//For each loop, check the three points. make vectors of P1-P0 && P2-P1. Check if this line pair is concave.
@@ -218,6 +169,41 @@ public class Triangulation : MonoBehaviour {
 		}
 	}
 
+	private void UpdateConcavity(int index, List<int> loop, List<bool> concavity) {
+		int firstEdge = loop[index];
+		int secondEdge = loop[(index + 1) % loop.Count];
+
+		Vector3 firstLine = points[edges[firstEdge + 1]] - points[edges[firstEdge]];
+		Vector3 secondLine = points[edges[secondEdge + 1]] - points[edges[secondEdge]];
+
+		concavity[index] = CheckLinePairConcavity(firstLine, secondLine);
+	}
+
+	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
+		return (Mathf.Acos((Vector3.Dot(line0, line1)) / (Vector3.Magnitude(line0) * Vector3.Magnitude(line1))) > 0.0f);
+	}
+
+	//for each loop, check for concavitiy, and check if the "reflex point" is inside the triangle.
+	//A lovely gift from github.
+	private bool IsTriangleOverlappingLoop(int point0, int point1, int point2, List<int> loop, List<bool> concavity) {
+		Vector3 triangle0 = points[point0];
+		Vector3 triangle1 = points[point1];
+		Vector3 triangle2 = points[point2];
+
+		for (int i = 0; i < loop.Count; i++) {
+			if (concavity[i]) {
+				int reflexAngleVert = edges[loop[i] + 1];
+				//Skip points that aren't in the triangle
+				if (reflexAngleVert != point0 && reflexAngleVert != point1 && reflexAngleVert != point2) {
+					Vector3 point = points[reflexAngleVert];
+					//Check if reflex vertex is inside the triangle
+					if (IsPointInsideTriangle(point, triangle0, triangle1, triangle2)) 
+						return true;
+				}
+			}
+		}
+		return false;
+	}
 
 	//Find the closest point in a triangle, insert a loop at that point, and remove the loop at the previous point.
 	//TODO: don't use ref vars pls
@@ -225,11 +211,11 @@ public class Triangulation : MonoBehaviour {
 		int[] loopInfo = FindClosestPointInTriangle(first, second, third, loop);
 		int otherLoopIndex = loopInfo[0];
 		int otherLoopLocation = loopInfo[1];
-		
+
 		if (otherLoopIndex != -1) {
 			//Swallow the other loop
 			InsertLoop(first, loop, concavity, otherLoopLocation, loops[otherLoopIndex], concavities[otherLoopIndex]);
-		
+
 			//Remove the obsolete loop
 			loops.RemoveAt(otherLoopIndex);
 			concavities.RemoveAt(otherLoopIndex);
@@ -242,39 +228,8 @@ public class Triangulation : MonoBehaviour {
 		return false;
 	}
 
-	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triPoint0, Vector3 triPoint1, Vector3 triPoint2) {
-
-		//This if statement checks to see if the point is on the same plane as the triangle.
-		if (Vector3.Dot (triPoint2 - triPoint0, Vector3.Cross (triPoint1 - triPoint0, point - triPoint2)) == 0) {
-
-			//If the point is, then it uses the Barycentric coordinates to check whether or not the point is within the 2D triangle.
-			Vector3 v0 = triPoint2 - triPoint0;
-			Vector3 v1 = triPoint1 - triPoint0;
-			Vector3 v2 = point - triPoint0;
-
-			float dot00 = Vector3.Dot (v0, v0);
-			float dot01 = Vector3.Dot (v0, v1);
-			float dot02 = Vector3.Dot (v0, v2);
-			float dot11 = Vector3.Dot (v1, v1);
-			float dot12 = Vector3.Dot (v1, v2);
-
-			float invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
-			float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-			float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-
-			return (u >= 0 && v >= 0 && u + v < 1);
-		} else {
-			return false;
-		}
-	}
-
 	private int[] FindClosestPointInTriangle(int first, int second, int third, List<int> loop) {
-		//TODO: IMPLEMENT ME pls dan
-		//What the title says. Given three points of a triangle and their respective loop, find the closest point.
-
-		//this function is only CHECKING to see if we can find a point on the given triangle.
-		//I.E., if we can't find a loop, return false.
-
+		//Given three points of a triangle and their respective loop, find the closest point.
 		int closestLoopIndex = -1;
 		int closestLoopLocation = 0;
 		float closestDistance = -1f;
@@ -311,6 +266,33 @@ public class Triangulation : MonoBehaviour {
 
 		return result;
 	}
+
+	public static bool IsPointInsideTriangle(Vector3 point, Vector3 triPoint0, Vector3 triPoint1, Vector3 triPoint2) {
+
+		//This if statement checks to see if the point is on the same plane as the triangle.
+		if (Vector3.Dot (triPoint2 - triPoint0, Vector3.Cross (triPoint1 - triPoint0, point - triPoint2)) == 0) {
+
+			//If the point is, then it uses the Barycentric coordinates to check whether or not the point is within the 2D triangle.
+			Vector3 v0 = triPoint2 - triPoint0;
+			Vector3 v1 = triPoint1 - triPoint0;
+			Vector3 v2 = point - triPoint0;
+
+			float dot00 = Vector3.Dot (v0, v0);
+			float dot01 = Vector3.Dot (v0, v1);
+			float dot02 = Vector3.Dot (v0, v2);
+			float dot11 = Vector3.Dot (v1, v1);
+			float dot12 = Vector3.Dot (v1, v2);
+
+			float invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+			float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+			float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+			return (u >= 0 && v >= 0 && u + v < 1);
+		} else {
+			return false;
+		}
+	}
+
 	private void InsertLoop(int insertLocation, List<int> loop, List<bool> concavity, int otherAnchorLocation, List<int> otherLoop, List<bool> otherConcavity) {
 		//Insert a loop into a mesh give the given attributes. 
 		//This effectively "closes" the hole in the original mesh.
@@ -349,59 +331,49 @@ public class Triangulation : MonoBehaviour {
 			previousLocation = loop.Count - 1;
 		else
 			previousLocation = insertLocation - 1;
-		
+
 		UpdateConcavity(previousLocation, loop, concavity);
 		UpdateConcavity(insertLocation, loop, concavity);
 		UpdateConcavity(insertLocation + otherLoop.Count, loop, concavity);
 		UpdateConcavity(insertLocation + otherLoop.Count + 1, loop, concavity);
 	}
 
-	private void UpdateConcavity(int index, List<int> loop, List<bool> concavity) {
-		int firstEdge = loop[index];
-		int secondEdge = loop[(index + 1) % loop.Count];
-
-		Vector3 firstLine = points[edges[firstEdge + 1]] - points[edges[firstEdge]];
-		Vector3 secondLine = points[edges[secondEdge + 1]] - points[edges[secondEdge]];
-
-		concavity[index] = CheckLinePairConcavity(firstLine, secondLine);
-	}
-
 	private void FillTriangle(int zero, int first, int second, int third, List<int> loop, List<bool> concavity) {
-		//create a new triangle out of 3 points. Create the 3 new tri edges.
-		//Update the concavity using a "zero-line", "cross-line", and "third-line".
-		//check the concavity of the ZeroCross and CrossThird pairs.
+		// Find triangle features
+		int zeroEdge = loop[zero];
+		int thirdEdge = loop[third];
 
 		int firstPoint = edges[loop[first]];
 		int secondPoint = edges[loop[second]];
-		int thirdPoint = edges[loop[third]];
+		int thirdPoint = edges[thirdEdge];
 
 		int crossEdge;
 
 		if (loop.Count != 3) {
-			//Create the cross edge
 			crossEdge = edges.Count;
 			edges.Add(firstPoint);
 			edges.Add(thirdPoint);
 		}
 		else
-			crossEdge = loop[third]; //Use the third edge as the cross edge
+			crossEdge = thirdEdge; //Third edge is the cross edge
 
-		// Add new triangle
+		//Add new triangle
 		triangles.Add(firstPoint);
 		triangles.Add(secondPoint);
 		triangles.Add(thirdPoint);
+
 		triangleEdges.Add(loop[first]);
 		triangleEdges.Add(loop[second]);
 		triangleEdges.Add(crossEdge);
 
-		// Update loop
+		//Update loop
 		loop[second] = crossEdge;
 		loop.RemoveAt(first);
 
-		// Update concavity; always update in order to support zero-length edges
-		Vector3 zeroLine = points[firstPoint] - points[edges[loop[zero]]];
+		//Update concavity
+		Vector3 zeroLine = points[firstPoint] - points[edges[zeroEdge]];
 		Vector3 crossLine = points[thirdPoint] - points[firstPoint];
-		Vector3 thirdLine = points[edges[loop[third] + 1]] - points[thirdPoint];
+		Vector3 thirdLine = points[edges[thirdEdge + 1]] - points[thirdPoint];
 
 		concavity[zero] = CheckLinePairConcavity(zeroLine, crossLine);
 
@@ -409,52 +381,43 @@ public class Triangulation : MonoBehaviour {
 		concavity.RemoveAt(first);
 	}
 
-	private bool LocateLoops() {
-		//TODO: IMPLEMENT ME
-		//for each edge, take edge[i*2] ** edge[i*2+1]. Check if the current edge connects with prev edge.
-		//if it does, add it to the loop. if th ecurrent edge ends the loop, add the complete loop to loops
-		//   and clear loop.
-		loops = new List<List<int>>();
-		List<int> loop = new List<int>(edges.Count / 2);
+	private void RemoveDuplicateEdges() {
+		for (int i = 0; i < duplicateEdges.Count; i++) {
+			int edge = duplicateEdges[i];
+			edges.RemoveRange(edge, 2); //Remove the duplicate edge
 
-		for (int i = 0; i < edges.Count / 2; i *= 2) {
-			int edge = i * 2;
-			int endPoint = edges[edge + 1];
-			loop.Add(edge);
-			//Check if edge ends the loop
-			if (endPoint == edges[loop[0]]) {
-				loops.Add(loop);
-				loop = new List<int>();
+			//Update indices in triangle edges
+			//TODO: consider doing this in a non-syntatically-moronic way.
+			for (int j = 0, l = i + 1; j < triangleEdges.Count || l < duplicateEdges.Count; j++, i++) {
+				if (l < duplicateEdges.Count && duplicateEdges[l] >= edge)
+					duplicateEdges[j] -= 2; //Edge is in front of the duplicate edge
+
+				if (j < triangleEdges.Count && triangleEdges[j] >= edge) 
+					triangleEdges[j] -= 2;  //edge is in front of the duplicate edge
 			}
+
 		}
 	}
 
-	//Thanks math textbook
-	private bool CheckLinePairConcavity(Vector3 line0, Vector3 line1) {
-		//TODO: DAAAAN FIX ME
-		//Fixed ;D
-		return (Mathf.Acos((Vector3.Dot(line0, line1)) / (Vector3.Magnitude(line0) * Vector3.Magnitude(line1))) > 0.0f);
+	private List<int[]> SetOutput(List<int[]> edgesTrisTriedges) {
+		//Set edges
+		int newEdgeCount = edges.Count - initEdgeCount;
+		if (newEdgeCount > 0) {
+			edgesTrisTriedges[0] = new int[newEdgeCount];
+			edges.CopyTo(initEdgeCount, edgesTrisTriedges[0], 0, newEdgeCount);
+		}
+		else 
+			edgesTrisTriedges[0] = new int[0];
+
+		//Set triangles
+		edgesTrisTriedges[1] = triangles.ToArray();
+
+		//Set triangle edges
+		edgesTrisTriedges[2] = new int[triangleEdges.Count];
+
+		for (int i = 0; i < triangleEdges.Count; i++) 
+			edgesTrisTriedges[2][i] = triangleEdges[i] / 2;
+
+		return edgesTrisTriedges;
 	}
-
 }
-
-/* alternate old method for IPIT
- Vector3 triangleNormal = Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0);
-
-//Discard size zero triangles
-if (Vector3.Cross(triangle1 - triangle0, triangle2 - triangle0) == Vector3.zero)
-	return false;
-
-Vector3 pointTo0 = triangle0 - point;
-Vector3 pointTo1 = triangle1 - point;
-Vector3 pointTo2 = triangle2 - point;
-
-if (   Vector3.Dot(Vector3.Cross(pointTo0, pointTo1), triangleNormal) < 0.0f
-	|| Vector3.Dot(Vector3.Cross(pointTo1, pointTo2), triangleNormal) < 0.0f
-	|| Vector3.Dot(Vector3.Cross(pointTo2, pointTo0), triangleNormal) < 0.0f  )
-{ return false; }
-
-return true;
-*/
-// LPC //return Vector3.Dot(line1, Vector3.Cross(line0, normalPlane) ) > 0.0f;
-

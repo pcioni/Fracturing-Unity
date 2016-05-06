@@ -1,35 +1,23 @@
-﻿using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class FractureMain : MonoBehaviour {
-
-	private int generation = 1;
-	private int maxGenerations = 3;
-	private int numCutsToMake = 2;
+	public int generation = 1;
+	public int maxGenerations = 3;
+	public int numCutsToMake = 2;
 
 	private ConvexHull hull;
 
 	public float forceToFracture;
-
 	public bool fillCut = true;
 
 	public void Start() {
-		if (hull == null)
+		if (hull == null) 
 			hull = new ConvexHull(GetComponent<MeshFilter>().mesh);
 	}
 
-	public void OnCollisionEnter(Collision c) {
-		if (c.impactForceSum.magnitude >= forceToFracture) {
-			foreach (ContactPoint cp in c.contacts) {
-				if (cp.otherCollider == c.collider)
-					Fracture (transform.InverseTransformPoint (cp.point));
-			}
-		}
-	}
-
-	/// Fractures a GameObject at a point, instantiating the pieces as new GameObjects.
-	/// Create local planes -> create new convex hulls -> create new GameObjects
+	///Fractures a GameObject at a point, instantiating the pieces as new GameObjects.
+	///Create local planes -> create new convex hulls -> create new GameObjects
 	public void Fracture(Vector3 point) {
 		if (generation < maxGenerations) {
 			generation++;
@@ -38,13 +26,13 @@ public class FractureMain : MonoBehaviour {
 			Plane[] planes = new Plane[numCutsToMake];
 			for (int i = 0; i < planes.Length; i++) 
 				planes[i] = new Plane(Random.onUnitSphere, point);
-			
+
 			SplitPlanes(planes);
 		}
 	}
 
 	public void SplitPlanes(Plane[] planes) {
-		if (planes != null && planes.Length > 0 && hull != null && !hull.IsEmpty()) {
+		if (planes != null && planes.Length > 0 && hull != null) {
 			planes = createLocalPlanes(planes);
 			List<ConvexHull> newHulls = CreateNewConvexHulls(planes);
 			GameObject[] newGameObjects = CreateNewGameObjects(newHulls);
@@ -52,7 +40,6 @@ public class FractureMain : MonoBehaviour {
 		}
 	}
 
-	//TODO: might not need this
 	private Plane[] createLocalPlanes(Plane[] planes) {
 		for (int i = 0; i < planes.Length; i++) {
 			Vector3 localNormal = transform.InverseTransformDirection(planes[i].normal);
@@ -62,7 +49,7 @@ public class FractureMain : MonoBehaviour {
 		}
 		return planes;
 	}
-	
+
 	private List<ConvexHull> CreateNewConvexHulls(Plane[] localPlanes) {
 		List<ConvexHull> newConvexHulls = new List<ConvexHull>(); 
 		newConvexHulls.Add(hull);
@@ -78,12 +65,8 @@ public class FractureMain : MonoBehaviour {
 				ConvexHull b = newHulls[1];
 
 				newConvexHulls.Remove(previousHull);
-
-				if (!a.IsEmpty)
-					newConvexHulls.Add(a);
-
-				if (!b.IsEmpty)
-					newConvexHulls.Add(b);
+				newConvexHulls.Add(a);
+				newConvexHulls.Add(b);
 			}
 		}
 		return newConvexHulls;
@@ -92,8 +75,45 @@ public class FractureMain : MonoBehaviour {
 	private GameObject[] CreateNewGameObjects(List<ConvexHull> newHulls) {
 		//TODO: Implement this
 		GameObject[] newGameObjects = new GameObject[newHulls.Count];
+
+		//Get new meshes
+		Mesh[] newMeshes = new Mesh[newHulls.Count];
+		float[] newVolumes = new float[newHulls.Count];
+
+		float totalVolume = 0.0f;
+
+		for (int i = 0; i < newHulls.Count; i++) {
+			Mesh mesh = newHulls[i].GetMesh();
+			Vector3 size = mesh.bounds.size;
+			float volume = size.x * size.y * size.z;
+
+			newMeshes[i] = mesh;
+			newVolumes[i] = volume;
+
+			totalVolume += volume;
+		}
+
+		for (int i = 0; i < newHulls.Count; i++) {
+			ConvexHull newHull = newHulls[i];
+			Mesh newMesh = newMeshes[i];
+			float volume = newVolumes[i];
+
+			GameObject newGameObject = (GameObject)Instantiate(gameObject);
+
+			newGameObject.GetComponent<FractureMain>().hull = newHull;
+			newGameObject.GetComponent<MeshFilter>().mesh = newMesh;
+			newGameObject.GetComponent<MeshCollider>().sharedMesh = newMesh;
+
+			//Set rigidbody
+			if (fillCut) {
+				Rigidbody newRigidbody = newGameObject.GetComponent<Rigidbody>();
+				newRigidbody.mass = GetComponent<Rigidbody>().mass * (volume / totalVolume);
+				newRigidbody.velocity = GetComponent<Rigidbody>().GetPointVelocity(newRigidbody.worldCenterOfMass);
+				newRigidbody.angularVelocity = GetComponent<Rigidbody>().angularVelocity;
+			}
+
+			newGameObjects[i] = newGameObject;
+		}
 		return newGameObjects;
 	}
-
-
 }

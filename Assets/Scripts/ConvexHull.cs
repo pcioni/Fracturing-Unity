@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-
 //Creates a convex hull out of geometry data.
 /*
  * http://answers.unity3d.com/questions/380233/generating-a-convex-hull.html
@@ -15,9 +14,10 @@ using System.Linq;
  * http://diskhkme.blogspot.com/2015/11/convex-hull-algorithm-in-unity-5.html
  * https://github.com/abrarjahin/QuickHull2D_unity_js
  */
-public class ConvexHull : MonoBehaviour {
+public class ConvexHull {
+	private static float smallestValidLength = 0.01f;
+	private static float smallestValidRatio = 0.05f;
 
-	private List<Vector2> uvs; //I don't actually know if we'll implement this
 	private List<Vector3> vertices;
 	private List<Vector3> normals;
 	private List<Vector4> tangents;
@@ -35,7 +35,6 @@ public class ConvexHull : MonoBehaviour {
 		vertices = new List<Vector3>(vertexCount);
 		normals = new List<Vector3>(vertexCount);
 		tangents = new List<Vector4>(vertexCount);
-		uvs = new List<Vector2>(vertexCount);
 
 		vertexPoints = new List<Point>(vertexCount);
 
@@ -48,7 +47,6 @@ public class ConvexHull : MonoBehaviour {
 		vertices = new List<Vector3>(mesh.vertices);
 		normals = new List<Vector3>(mesh.normals);
 		tangents = new List<Vector4>(mesh.tangents);
-		uvs = new List<Vector2>(mesh.uv);
 
 		vertexPoints = new List<Point>(vertices.Count);
 
@@ -66,7 +64,7 @@ public class ConvexHull : MonoBehaviour {
 				vertexPoints.Add(p);
 			else 
 				vertexPoints.Add(pointAlreadyExists);	
-			
+
 			points.Add(p);
 		}
 
@@ -77,6 +75,24 @@ public class ConvexHull : MonoBehaviour {
 			AddTriangle(indices[triangle + 0], indices[triangle + 1], indices[triangle + 2]);
 		}
 	}
+
+	private Edge AddUniqueEdge(Point point0, Point point1) {
+		Edge e;
+		//Duplicate edges = same triangle. Don't draw the same triangle twice.
+		Edge edgeAlreadyExists = edges.Find(eExists => (eExists.point0 == point0 && eExists.point1 == point1)
+			|| (eExists.point0 == point1 && eExists.point1 == point0));
+
+		if (edgeAlreadyExists == null) {
+			e = new Edge(point0, point1);
+			edges.Add(e);
+			return e;
+		}
+		else {
+			edges.Add(edgeAlreadyExists);
+			return edgeAlreadyExists;
+		}
+	}
+
 
 	private void AddTriangle(int vertex0, int vertex1, int vertex2) {
 		Point point0 = vertexPoints[vertex0];
@@ -90,100 +106,55 @@ public class ConvexHull : MonoBehaviour {
 		triangles.Add(new Triangle(vertex0, vertex1, vertex2, point0, point1, point2, edge0, edge1, edge2));
 	}
 
-	private Edge AddUniqueEdge(Point point0, Point point1) {
-		Edge e;
-		//Duplicate edges = same triangle. Don't draw the same triangle twice.
-		Edge edgeAlreadyExists = edges.Find(eExists => (eExists.point0 == point0 && eExists.point1 == point1)
-												    || (eExists.point0 == point1 && eExists.point1 == point0));
-
-		if (edgeAlreadyExists == null) {
-			e = new Edge(point0, point1);
-			edges.Add(e);
-			return e;
-		}
-		else {
-			edges.Add(edgeAlreadyExists);
-			return edgeAlreadyExists;
-		}
-	}
-
-	public bool IsEmpty() {
-		return points.Count < 4 || edges.Count < 6 || triangles.Count < 4;
-	}
-
-	private void AddTriangle(int vertex0, int vertex1, int vertex2) {
-		Point point0 = vertexPoints[vertex0];
-		Point point1 = vertexPoints[vertex1];
-		Point point2 = vertexPoints[vertex2];
-
-		Edge edge0 = AddUniqueEdge(point0, point1);
-		Edge edge1 = AddUniqueEdge(point1, point2);
-		Edge edge2 = AddUniqueEdge(point2, point0);
-
-		Triangle triangle = new Triangle(vertex0, vertex1, vertex2, point0, point1, point2, edge0, edge1, edge2);
-
-		triangles.Add(triangle);
-	}
-
-	private int AddVertex(Vector3 vertex, Vector3 normal, Vector4 tangent, Vector2 uv, Point point) {
+	private int AddVertex(Vector3 vertex, Vector3 normal, Vector4 tangent, Point point) {
 		vertices.Add(vertex);
 		normals.Add(normal);
 		tangents.Add(tangent);
-		uvs.Add(uv);
 		vertexPoints.Add(point);
-		return vertices.Count;
+
+		return (vertices.Count - 1);
 	}
 
-	//TODO: might not need this
 	public void Clear() {
 		vertices.Clear();
 		normals.Clear();
 		tangents.Clear();
-		uvs.Clear();
-
 		vertexPoints.Clear();
-
 		points.Clear();
 		edges.Clear();
 		triangles.Clear();
 	}
 
 	public Mesh GetMesh() {
-		if (!IsEmpty) { //TODO: might not need this if
-			// Create vertex array
-			Vector3[] vertices = new Vector3[this.vertices.Count];
-			Vector3[] normals = new Vector3[this.normals.Count];
-			Vector4[] tangents = new Vector4[this.tangents.Count];
-			Vector2[] uvs = new Vector2[this.uvs.Count];
+		// Create vertex array
+		Vector3[] vertices = new Vector3[this.vertices.Count];
+		Vector3[] normals = new Vector3[this.normals.Count];
+		Vector4[] tangents = new Vector4[this.tangents.Count];
 
-			this.vertices.CopyTo(vertices, 0);
-			this.normals.CopyTo(normals, 0);
-			this.tangents.CopyTo(tangents, 0);
-			this.uvs.CopyTo(uvs, 0);
+		this.vertices.CopyTo(vertices, 0);
+		this.normals.CopyTo(normals, 0);
+		this.tangents.CopyTo(tangents, 0);
 
-			// Create index array
-			int[] indices = new int[triangles.Count * 3];
+		// Create index array
+		int[] indices = new int[triangles.Count * 3];
 
-			int count = 0;
+		int count = 0;
 
-			foreach (Triangle triangle in triangles) {
-				indices[count++] = triangle.vertex0;
-				indices[count++] = triangle.vertex1;
-				indices[count++] = triangle.vertex2;
-			}
-
-			// Create output mesh
-			Mesh mesh = new Mesh();
-
-			mesh.vertices = vertices;
-			mesh.normals = normals;
-			mesh.tangents = tangents;
-			mesh.uv = uvs;
-			mesh.triangles = indices;
-
-			return mesh;
+		foreach (Triangle triangle in triangles) {
+			indices[count++] = triangle.vertex0;
+			indices[count++] = triangle.vertex1;
+			indices[count++] = triangle.vertex2;
 		}
-		return null; //TODO: or this
+
+		// Create output mesh
+		Mesh mesh = new Mesh();
+
+		mesh.vertices = vertices;
+		mesh.normals = normals;
+		mesh.tangents = tangents;
+		mesh.triangles = indices;
+
+		return mesh;
 	}
 
 	public ConvexHull[] Split(Vector3 localPointOnPlane, Vector3 localPlaneNormal, bool fillCut) {
@@ -195,7 +166,8 @@ public class ConvexHull : MonoBehaviour {
 		ConvexHull b = new ConvexHull(this);
 
 		//set indecies of edge array
-		int pointCount, edgeCount = 0;
+		int pointCount = 0;
+		int edgeCount = 0;
 		foreach (Point point in points)
 			point.index = pointCount++;
 		foreach (Edge edge in edges)
@@ -219,10 +191,6 @@ public class ConvexHull : MonoBehaviour {
 			FillCutEdges(a, b, cutEdgesA, cutEdgesB, localPlaneNormal);
 		}
 
-		//TODO: might not need this
-		//ValidateOutput(a, b, localPlaneNormal);
-
-		//TODO: or this
 		Clear();
 
 		result[0] = a;
@@ -230,10 +198,10 @@ public class ConvexHull : MonoBehaviour {
 		return result;
 	}
 
-	private bool[] AssignPoints(ConvexHull a, ConvexHull b, Vector3 pointOnPlane, Vector3 planeNormal) {
+	private bool[] AssignPoints(ConvexHull a, ConvexHull b, Vector3 pointOnPlane, Vector3 normalPlane) {
 		bool[] pointAbovePlane = new bool[points.Count];
 		foreach (Point point in points) {
-			bool abovePlane = Vector3.Dot(point.position - pointOnPlane, planeNormal) >= 0.0f;
+			bool abovePlane = Vector3.Dot(point.position - pointOnPlane, normalPlane) >= 0.0f;
 			pointAbovePlane[point.index] = abovePlane;
 			if (abovePlane)
 				a.points.Add(point);
@@ -248,14 +216,14 @@ public class ConvexHull : MonoBehaviour {
 		for (int i = 0; i < vertices.Count; i++) {
 			Point correspondingPoint = vertexPoints[i];
 			if (pointAbovePlane[correspondingPoint.index])
-				oldToNewVertex[i] = a.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint);
+				oldToNewVertex[i] = a.AddVertex(vertices[i], normals[i], tangents[i], correspondingPoint);
 			else
-				oldToNewVertex[i]=  b.AddVertex(vertices[i], normals[i], tangents[i], uvs[i], correspondingPoint);
+				oldToNewVertex[i]=  b.AddVertex(vertices[i], normals[i], tangents[i], correspondingPoint);
 		}
 		return oldToNewVertex;
 	}
 
-	private void AssignEdges(ConvexHull a, ConvexHull b, bool[] pointAbovePlane, Vector3 pointOnPlane, Vector3 planeNormal, out bool[] edgeIntersectsPlane, out EdgeHit[] edgeHits) {
+	private void AssignEdges(ConvexHull a, ConvexHull b, bool[] pointAbovePlane, Vector3 pointOnPlane, Vector3 normalPlane, out bool[] edgeIntersectsPlane, out EdgeHit[] edgeHits) {
 		edgeIntersectsPlane = new bool[edges.Count];
 		edgeHits = new EdgeHit[edges.Count];
 
@@ -269,8 +237,8 @@ public class ConvexHull : MonoBehaviour {
 				b.edges.Add(edge);
 			else {
 				//Split edge
-				float denominator = Vector3.Dot(edge.line, planeNormal);
-				float scalar = Mathf.Clamp01(Vector3.Dot(pointOnPlane - edge.point0.position, planeNormal) / denominator);
+				float denominator = Vector3.Dot(edge.line, normalPlane);
+				float scalar = Mathf.Clamp01(Vector3.Dot(pointOnPlane - edge.point0.position, normalPlane) / denominator);
 				Vector3 intersection = edge.point0.position + edge.line * scalar;
 
 				//Create new points
@@ -399,8 +367,7 @@ public class ConvexHull : MonoBehaviour {
 		return result;
 	}
 
-	//TODO:fix pls
-	private void HullifyTriangle(ConvexHull topHull, ConvexHull bottomHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
+	private void SplitTriangle(ConvexHull topConvexHull, ConvexHull bottomConvexHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
 		//Graphics Programmers on forums have --zero-- idea how to convey ideas to laymen. I found someone with
 		//   basically my exact question, and the top rated response was this disaster. "I have a great book on this 
 		//	 topic if you're interested!". Yeah, no thanks, I just want to split my triangle.
@@ -416,11 +383,6 @@ public class ConvexHull : MonoBehaviour {
 		Vector4 t0 = tangents[vertex0];
 		Vector4 t1 = tangents[vertex1];
 		Vector4 t2 = tangents[vertex2];
-
-		//TODO: are we using UVs? Who knows!
-		Vector2 uv0 = uvs[vertex0];
-		Vector2 uv1 = uvs[vertex1];
-		Vector2 uv2 = uvs[vertex2];
 
 		//Calculate the cut vertex data by interpolating original triangle values
 		Vector3 cutNormal0 = new Vector3();
@@ -449,40 +411,38 @@ public class ConvexHull : MonoBehaviour {
 		cutTangent1.Normalize();
 		cutTangent1.w = t1.w;
 
-		//TODO: I put this here because the internet guide said to. Dunno if we'll use it.
-		Vector2 cutUv0 = new Vector2();
-		cutUv0.x = uv0.x + (uv1.x - uv0.x) * scalar0;
-		cutUv0.y = uv0.y + (uv1.y - uv0.y) * scalar0;
-		Vector2 cutUv1 = new Vector2();
-		cutUv1.x = uv1.x + (uv2.x - uv1.x) * scalar1;
-		cutUv1.y = uv1.y + (uv2.y - uv1.y) * scalar1;
-
-		//Add the cut vertices to the hulls
+		// Add the cut vertices to the hulls
 		int topCutVertex0, topCutVertex1;
-		topCutVertex0 = topHull.AddVertex(topEdge0.point0.position, cutNormal0, cutTangent0, cutUv0, topEdge0.point0);
-		topCutVertex1 = topHull.AddVertex(topEdge1.point0.position, cutNormal1, cutTangent1, cutUv1, topEdge1.point0);
+		topCutVertex0 = topConvexHull.AddVertex(topEdge0.point0.position, cutNormal0, cutTangent0, topEdge0.point0);
+		topCutVertex1 = topConvexHull.AddVertex(topEdge1.point0.position, cutNormal1, cutTangent1, topEdge1.point0);
 
 		int bottomCutVertex0, bottomCutVertex1;
-		bottomCutVertex0 = bottomHull.AddVertex(bottomEdge0.point0.position, cutNormal0, cutTangent0, cutUv0, bottomEdge0.point0);
-		bottomCutVertex1 = bottomHull.AddVertex(bottomEdge1.point0.position, cutNormal1, cutTangent1, cutUv1, bottomEdge1.point0);
+		bottomCutVertex0 = bottomConvexHull.AddVertex(bottomEdge0.point0.position, cutNormal0, cutTangent0, bottomEdge0.point0);
+		bottomCutVertex1 = bottomConvexHull.AddVertex(bottomEdge1.point0.position, cutNormal1, cutTangent1, bottomEdge1.point0);
 
-		//Create the top of the original triangle
+		// Create the top of the original triangle
 		Triangle topTriangle = new Triangle(topCutVertex0, oldToNewVertex[vertex1], topCutVertex1, topEdge0.point0, topEdge0.point1, topEdge1.point0, topEdge0, topEdge1, topCutEdge);
-		topHull.triangles.Add(topTriangle);
+		topConvexHull.triangles.Add(topTriangle);
 
-		//Create the bottom of the original triangle
+		// Create the bottom of the original triangle
 		Edge bottomCrossEdge = new Edge(bottomEdge0.point1, bottomEdge1.point0);
-
 		Triangle bottomTriangle0 = new Triangle(oldToNewVertex[vertex0], bottomCutVertex0, bottomCutVertex1, bottomEdge0.point1, bottomEdge0.point0, bottomEdge1.point0, bottomEdge0, bottomCutEdge, bottomCrossEdge);
 		Triangle bottomTriangle1 = new Triangle(oldToNewVertex[vertex0], bottomCutVertex1, oldToNewVertex[vertex2], bottomEdge0.point1, bottomEdge1.point0, bottomEdge1.point1, bottomCrossEdge, bottomEdge1, bottomEdge2);
 
-		bottomHull.edges.Add(bottomCrossEdge);
-		bottomHull.triangles.Add(bottomTriangle0);
-		bottomHull.triangles.Add(bottomTriangle1);
+		bottomConvexHull.edges.Add(bottomCrossEdge);
+		bottomConvexHull.triangles.Add(bottomTriangle0);
+		bottomConvexHull.triangles.Add(bottomTriangle1);
 	}
 
-	private void SortCutEdges(IList<Edge> edgesA, IList<Edge> edgesB) {
-		Edge start = edgesA[0];
+	private void SortCutEdges(List<Edge> edgesA, List<Edge> edgesB) {
+		Edge start;
+		if (edgesA.Count > 0) {
+			start = edgesA[0];
+		}
+		else { 
+			start = null;
+		}
+
 		for (int i = 1; i < edgesA.Count; i++) {
 			Edge previous = edgesA[i - 1];
 			for (int j = i; j < edgesA.Count; j++) {
@@ -490,12 +450,15 @@ public class ConvexHull : MonoBehaviour {
 
 				//Check if edge continues loop
 				if (previous.point1 == edgeA.point0) {
-					//Swap edges
+					Edge currentEdgeA = edgesA[i];
+
 					edgesA[i] = edgeA;
-					edgesA[j] = edgesA[i];
+					edgesA[j] = currentEdgeA;
+
+					Edge currentEdgeB = edgesB[i];
 
 					edgesB[i] = edgesB[j];
-					edgesB[j] = edgesB[i];
+					edgesB[j] = currentEdgeB;
 
 					//Check if edge eneds loop
 					if (edgeA.point1 == start.point0)
@@ -507,16 +470,134 @@ public class ConvexHull : MonoBehaviour {
 		}
 	}
 
+	private void FillCutEdges(ConvexHull a, ConvexHull b, IList<Edge> edgesA, IList<Edge> edgesB, Vector3 normalPlane) {
+		//Create outline data
+		int outlineEdgeCount = edgesA.Count;
 
-	private List< List< Edge > > SplitTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
-		//TODO: DAN SPLIT THIS SHIT YO
+		Vector3[] outlinePoints = new Vector3[outlineEdgeCount];
+		int[] outlineEdges = new int[outlineEdgeCount * 2];
+
+		int startIndex = 0;
+
+		for (int i = 0; i < outlineEdgeCount; i++) {
+			int currentIndex = i;
+			int nextIndex = (i + 1) % outlineEdgeCount;
+
+			Edge current = edgesA[currentIndex];
+			Edge next = edgesA[nextIndex];
+
+			//Set point
+			outlinePoints[i] = current.point0.position;
+
+			//Set edge
+			outlineEdges[i * 2 + 0] = currentIndex;
+
+			if (current.point1 == next.point0)
+				outlineEdges[i * 2 + 1] = nextIndex;
+			else {
+				outlineEdges[i * 2 + 1] = startIndex;
+				startIndex = nextIndex;
+			}
+		}
+
+		//Triangulate
+		Triangulation triangulator = new Triangulation(outlinePoints, outlineEdges, normalPlane);
+
+		List<int[]> newData = triangulator.Fill();
+		int[] newEdges = newData[0];
+		int[] newTriangles = newData[1];
+		int[] newTriangleEdges = newData[2];
+
+		//Calculate vertex properties
+		Vector3 normalA = -normalPlane;
+		Vector3 normalB = normalPlane;
+		Vector4[] tangentsA, tangentsB;
+
+		//Create new vertices
+		int[] verticesA = new int[outlineEdgeCount];
+		int[] verticesB = new int[outlineEdgeCount];
+
+		////////////////////////
+		List<Vector4[]> newTans = assignTangents(normalPlane);
+		tangentsA = newTans[0];
+		tangentsB = newTans[1];
+		////////////////////////
+
+		for (int i = 0; i < outlineEdgeCount; i++) {
+			verticesA[i] = a.AddVertex(outlinePoints[i], normalA, tangentsA[i], edgesA[i].point0);
+			verticesB[i] = b.AddVertex(outlinePoints[i], normalB, tangentsB[i], edgesB[i].point0);
+		}
+
+		//Create new edges
+		for (int i = 0; i < newEdges.Length / 2; i++) {
+			int point0 = newEdges[i * 2 + 0];
+			int point1 = newEdges[i * 2 + 1];
+
+			Edge edgeA = new Edge(edgesA[point0].point0, edgesA[point1].point0);
+			Edge edgeB = new Edge(edgesB[point0].point0, edgesB[point1].point0);
+
+			edgesA.Add(edgeA);
+			edgesB.Add(edgeB);
+
+			a.edges.Add(edgeA);
+			b.edges.Add(edgeB);
+		}
+
+		//Create new triangles
+		for (int i = 0; i < newTriangles.Length / 3; i++) {
+			int point0 = newTriangles[i * 3 + 0];
+			int point1 = newTriangles[i * 3 + 1];
+			int point2 = newTriangles[i * 3 + 2];
+
+			int edge0 = newTriangleEdges[i * 3 + 0];
+			int edge1 = newTriangleEdges[i * 3 + 1];
+			int edge2 = newTriangleEdges[i * 3 + 2];
+
+			Triangle triangleA = new Triangle(verticesA[point0], verticesA[point2], verticesA[point1], edgesA[point0].point0, edgesA[point2].point0, edgesA[point1].point0, edgesA[edge2], edgesA[edge1], edgesA[edge0]);
+			Triangle triangleB = new Triangle(verticesB[point0], verticesB[point1], verticesB[point2], edgesB[point0].point0, edgesB[point1].point0, edgesB[point2].point0, edgesB[edge0], edgesB[edge1], edgesB[edge2]);
+
+			a.triangles.Add(triangleA);
+			b.triangles.Add(triangleB);
+		}
+	}
+
+	private List<Vector4[]> assignTangents(Vector3 normalPlane) {
+		List<Vector4[]> result = new List<Vector4[]>();
+		//Calculate texture direction vectors
+		Vector3 u = Vector3.Cross(normalPlane, Vector3.up);
+		if (u == Vector3.zero)
+			u = Vector3.Cross(normalPlane, Vector3.forward);
+
+		Vector3 v = Vector3.Cross(u, normalPlane);
+
+		u.Normalize();
+		v.Normalize();
+
+		//Set tangents
+		Vector4 tangentA = new Vector4(u.x, u.y, u.z, 1.0f);
+		Vector4 tangentB = new Vector4(u.x, u.y, u.z, -1.0f);
+
+		Vector4[] tangentsA = new Vector4[points.Count];
+		Vector4[] tangentsB = new Vector4[points.Count];
+
+		for (int i = 0; i < points.Count; i++) {
+			tangentsA[i] = tangentA;
+			tangentsB[i] = tangentB;
+		}
+
+		result.Add(tangentsA);
+		result.Add(tangentsB);
+		return result;
+	}
+
+	private List< List< Edge > > TriangulateTriangle(Vector3 vertex0, Vector3 vertex1, Vector3 vertex2) {
 		Point pointyc = new Point ((vertex0 + vertex1 + vertex2) / 9f);
 		Point pointy0 = new Point (vertex0);
 		Point pointy1 = new Point (vertex1);
 		Point pointy2 = new Point (vertex2);
-		Edge edgey0 = new Edge (vertex0, pointyc);
-		Edge edgey1 = new Edge (vertex1, pointyc);
-		Edge edgey2 = new Edge (vertex2, pointyc);
+		Edge edgey0 = new Edge (pointy0, pointyc);
+		Edge edgey1 = new Edge (pointy1, pointyc);
+		Edge edgey2 = new Edge (pointy2, pointyc);
 		List<List<Edge>> resulty = new List<List<Edge>>();
 		resulty.Add (new List<Edge> { edgey0, edgey1, new Edge(pointy0, pointy1) });
 		resulty.Add (new List<Edge> { edgey1, edgey2, new Edge(pointy1, pointy2) });
@@ -524,13 +605,3 @@ public class ConvexHull : MonoBehaviour {
 		return resulty;
 	}
 }
-
-
-/* FOR CUTTING EDGES IN THE FUTURE
-// Triangulate
-Triangulation triangulator = new Triangulator(outlinePoints, outlineEdges, planeNormal);
-List<int[]> edgesTrisTriedges = triangulator.Fill();
-int[] newEdges = edgesTrisTriedges[0];
-int[] newTriangles = edgesTrisTriedges[1];
-int[] newTriangleEdges = edgesTrisTriedges[2];
- */ 
