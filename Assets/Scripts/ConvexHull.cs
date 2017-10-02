@@ -179,7 +179,6 @@ public class ConvexHull {
 
 		bool[] edgeIntersectsPlane;
 		EdgeHit[] edgeHits;
-		//"out" parameter to keep this piece-a-junk from pervading it's sticky fingers throughout the entire program
 		AssignEdges(a, b, pointAbovePlane, localPointOnPlane, localPlaneNormal, out edgeIntersectsPlane, out edgeHits);
 
 		List<Edge>[] newTris = AssignTriangles(a, b, pointAbovePlane, edgeIntersectsPlane, edgeHits, oldToNewVertex);
@@ -368,13 +367,7 @@ public class ConvexHull {
 	}
 
 	private void SplitTriangle(ConvexHull topConvexHull, ConvexHull bottomConvexHull, Edge topEdge0, Edge topEdge1, Edge topCutEdge, Edge bottomEdge0, Edge bottomEdge1, Edge bottomCutEdge, Edge bottomEdge2, int vertex0, int vertex1, int vertex2, float scalar0, float scalar1, int[] oldToNewVertex) {
-		//Graphics Programmers on forums have --zero-- idea how to convey ideas to laymen. I found someone with
-		//   basically my exact question, and the top rated response was this disaster. "I have a great book on this 
-		//	 topic if you're interested!". Yeah, no thanks, I just want to split my triangle.
 		//   http://stackoverflow.com/questions/24806221/split-a-triangle-into-smaller-triangles like why.
-		//
-		//Anyway, this is some sort of hybrid-inbred bastard child of Delaunay and StackOverflowUserBullshit with a few 
-		//   genetic sprinkles of other random Math / Unity forums. 
 
 		Vector3 n0 = normals[vertex0];
 		Vector3 n1 = normals[vertex1];
